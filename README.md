@@ -35,6 +35,24 @@
 
 ---
 
+## 🎨 Seslendirme Nüansları (Pro-Tips)
+
+Kulaq, metin içindeki gizli komutları anlayabilen gelişmiş bir model kullanır. İşte sese duygu katma yolları:
+
+*   **Duygusal Efektler:** Metin içine şu ifadeleri ekleyin:
+    *   `[laughs]` -> Karakterin gülmesini sağlar.
+    *   `[sighs]` -> Karakterin derin bir iç çekmesini sağlar.
+    *   `[coughs]` -> Karakterin öksürmesini sağlar.
+    *   `[clears throat]` -> Karakterin boğazını temizlemesini sağlar.
+*   **Vurgu:** Önemli bir kelimeyi **TAMAMEN BÜYÜK HARFLE** yazarak AI'nın o kelimeye vurgu yapmasını sağlayın.
+*   **Doğal Duraksamalar:**
+    *   `,`: Kısa bir nefes payı.
+    *   `.`: Standart cümle sonu es.
+    *   `...`: Düşünceli veya uzun süreli sessizlik.
+*   **Doğallık Katmanları:** Cümle başlarına "Um...", "Well," veya "Uh-oh," gibi ifadeler ekleyerek sınav materyalini gerçekçi kılın.
+
+---
+
 ## 🛠 Teknik Altyapı
 
 *   **Frontend:** React (Hooks + Functional Components)
@@ -43,16 +61,6 @@
 *   **Visualization:** D3.js
 *   **Audio Engine:** Web Audio API (PCM Decoding & WAV Encoding)
 *   **Language Support:** Full i18n (Türkçe & English)
-
----
-
-## 📖 Kullanım Klavuzu
-
-1.  **Mod Seçimi:** Tekil metin (Monolog) veya Diyalog Stüdyosu arasında seçim yapın.
-2.  **Metin Girişi:** Seslendirilmesini istediğiniz İngilizce metni yazın. Uzun duraklamalar için `...` kullanabilirsiniz.
-3.  **Karakter Ayarları:** Sağ panelden karakterinizin sesini ve hızını seçin.
-4.  **Oluştur:** "SINAV SESİNİ OLUŞTUR" butonuna basın. Yapay zeka saniyeler içinde sesi sentezleyecektir.
-5.  **Önizleme & İndir:** Timeline üzerinden sesi kontrol edin ve ihtiyacınız varsa bulut ikonu ile bilgisayarınıza indirin.
 
 ---
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { VoiceName, SpeakerConfig, DialogueItem, AudioGenerationHistory, SpeechSpeed, AppLang, VoiceDescriptions } from './types';
-import { generateSingleSpeakerAudio, generateMultiSpeakerAudio, audioBufferToWavBlob } from './services/geminiService';
+import { generateSingleSpeakerAudio, generateMultiSpeakerAudio, audioBufferToWavBlob, enrichTextWithAI } from './services/geminiService';
 import AudioVisualizer from './components/AudioVisualizer';
 
 const TONE_PRESETS = [
@@ -49,16 +49,23 @@ const translations = {
     savedAssets: 'Arşivim',
     noAssets: 'Henüz bir sınav kaydı oluşturmadınız',
     replay: 'TEKRAR OYNAT',
-    tipsTitle: 'Öğretmenler İçin Sınav Hazırlama İpuçları',
-    tip1: 'Duraklamalar: Gemini noktalamaya duyarlıdır. Uzun esler için "..." kullanın.',
-    tip2: 'Zorluk: A1 seviyesi için "V. Slow", B2 için "Normal" hızı seçin.',
-    tip3: 'Diyaloglar: Karakterlerin cinsiyet ve ses tonlarını birbirinden farklı seçin.',
-    tip4: 'Tekrar: Sınav yönergelerini her zaman "Exam (Formal)" tonuyla oluşturun.',
+    tipsTitle: 'Kusursuz Seslendirme İçin İpuçları',
+    tip1: 'Duraklamalar: Virgül kısa, nokta orta, üç nokta (...) ise uzun es verir. Cümle aralarına koymayı unutmayın.',
+    tip2: 'Duygular: Metin içine [laughs], [sighs], [coughs] gibi ifadeler ekleyerek karakteri canlandırabilirsiniz.',
+    tip3: 'Vurgular: Önemli kelimeleri BÜYÜK HARFLE yazmak, AI\'nın o kelimeye baskı yapmasını sağlar.',
+    tip4: 'Dudak Payı: Cümlenin en sonuna "..." eklemek, sesin aniden kesilmesini önler ve doğal bir bitiş sağlar.',
+    tip5: 'Soru Tonu: Soru işaretlerini (?) cümlenin sonuna mutlaka ekleyin; intonasyon otomatik olarak yükselir.',
+    tip6: 'Doğal Dolgu: "Um...", "Uh...", "Well," gibi ifadeler diyaloğun daha insansı duyulmasını sağlar.',
+    tip7: 'Karakter Farkı: Diyaloglarda bir sesi "Fast", diğerini "Slow" yaparak hiyerarşi oluşturabilirsiniz.',
+    tip8: 'Tereddüt: Kelime aralarına tire (-) koyarak (Örn: I- I don\'t know) kekeleme efekti verebilirsiniz.',
     footerNote: 'ELT Materyal Geliştirme Aracı',
     male: 'Erkek',
     female: 'Kadın',
     developedBy: 'Tarafından Geliştirildi',
     clearAll: 'Tümünü Sil',
+    autoEnrich: 'AI Duygu Ekle',
+    enriching: 'Analiz Ediliyor...',
+    proTips: 'Öğretmen İpuçları',
     techNote: 'Nasıl Yapıldı: Kulaq, Google Gemini 2.5 Flash TTS API ve React kullanılarak Can AKALIN tarafından geliştirilmiştir. Sesler gerçek zamanlı olarak yapay zeka tarafından sentezlenir.'
   },
   en: {
@@ -79,16 +86,23 @@ const translations = {
     savedAssets: 'Asset Library',
     noAssets: 'No exam assets generated yet',
     replay: 'RE-PLAY',
-    tipsTitle: 'Exam Preparation Tips for Teachers',
-    tip1: 'Pauses: Gemini respects punctuation. Use "..." for longer gaps.',
-    tip2: 'Difficulty: Choose "V. Slow" for A1 and "Normal" for B2+ levels.',
-    tip3: 'Dialogues: Select distinct voices for characters to avoid confusion.',
-    tip4: 'Consistency: Always use "Exam (Formal)" tone for instructions.',
+    tipsTitle: 'Pro Tips for Perfect Audio',
+    tip1: 'Pauses: Commas are short, periods medium, and ellipses (...) give long pauses. Vital for clarity.',
+    tip2: 'Emotions: Insert [laughs], [sighs], or [coughs] in square brackets to make characters feel alive.',
+    tip3: 'Emphasis: Write critical words in UPPERCASE to make the AI stress those specific terms.',
+    tip4: 'Tail: Adding "..." at the very end prevents abrupt audio cuts and creates a natural fade-out.',
+    tip5: 'Intonation: Always use question marks (?) to ensure the voice rises naturally at the end of queries.',
+    tip6: 'Fillers: Use "Um...", "Uh...", or "Well," to create a more realistic, human-like conversation flow.',
+    tip7: 'Dynamics: In dialogues, try setting one voice to "Fast" and another to "Slow" for social contrast.',
+    tip8: 'Hesitation: Use hyphens (e.g., I- I don\'t know) between repeated words to simulate a stutter.',
     footerNote: 'ELT Material Design Tool',
     male: 'Male',
     female: 'Female',
     developedBy: 'Developed by',
     clearAll: 'Clear All',
+    autoEnrich: 'AI Auto-Enrich',
+    enriching: 'Analyzing Context...',
+    proTips: 'Pro Teacher Tips',
     techNote: 'How it works: Kulaq is built using Google Gemini 2.5 Flash TTS API and React. Audio is synthesized in real-time using advanced neural models.'
   }
 };
@@ -129,6 +143,7 @@ const App: React.FC = () => {
 
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEnriching, setIsEnriching] = useState(false);
   const [history, setHistory] = useState<AudioGenerationHistory[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTips, setShowTips] = useState(true);
@@ -164,6 +179,29 @@ const App: React.FC = () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
   }, [isPlaying, updateProgress]);
+
+  // AI Enrichment Logic
+  const handleAutoEnrich = async () => {
+    setIsEnriching(true);
+    try {
+      if (mode === 'single') {
+        const enriched = await enrichTextWithAI(text);
+        setText(enriched);
+      } else {
+        const enrichedDialogue = await Promise.all(
+          dialogue.map(async (item) => ({
+            ...item,
+            text: await enrichTextWithAI(item.text)
+          }))
+        );
+        setDialogue(enrichedDialogue);
+      }
+    } catch (err) {
+      console.error("Enrichment failed:", err);
+    } finally {
+      setIsEnriching(false);
+    }
+  };
 
   // Archive Management Logic
   const deleteHistoryItem = useCallback((id: string) => {
@@ -311,8 +349,14 @@ const App: React.FC = () => {
             <button onClick={() => setLang('tr')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${lang === 'tr' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>TR 🇹🇷</button>
             <button onClick={() => setLang('en')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${lang === 'en' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>EN 🇬🇧</button>
           </div>
-          <button onClick={() => setShowTips(!showTips)} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border ${showTips ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-indigo-400'}`}>
-            <i className="fa-solid fa-graduation-cap text-lg"></i>
+          
+          {/* Prominent Pro Tips Button */}
+          <button 
+            onClick={() => setShowTips(!showTips)} 
+            className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs tracking-widest transition-all border shadow-lg ${showTips ? 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-600/20' : 'bg-slate-900 border-slate-800 text-indigo-400 hover:border-indigo-500/40 hover:bg-slate-800'}`}
+          >
+            <i className={`fa-solid ${showTips ? 'fa-circle-xmark' : 'fa-lightbulb-on'} text-sm`}></i>
+            {t.proTips}
           </button>
         </div>
       </header>
@@ -322,13 +366,13 @@ const App: React.FC = () => {
         <div className="w-full max-w-6xl mb-8 bg-indigo-600/5 border border-indigo-500/20 rounded-3xl p-6 relative overflow-hidden group">
           <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all"></div>
           <h3 className="text-sm font-black text-indigo-400 uppercase tracking-widest mb-6 flex items-center gap-3">
-             <i className="fa-solid fa-book-sparkles"></i> {t.tipsTitle}
+             <i className="fa-solid fa-wand-magic-sparkles text-indigo-400 animate-pulse"></i> {t.tipsTitle}
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[t.tip1, t.tip2, t.tip3, t.tip4].map((tip, idx) => (
-              <div key={idx} className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/40 hover:border-indigo-500/30 transition-all relative z-10">
-                <span className="text-[10px] font-black text-indigo-500 mb-2 block">GUIDE #{idx+1}</span>
-                <p className="text-[11px] leading-relaxed text-slate-400 font-medium">{tip}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[t.tip1, t.tip2, t.tip3, t.tip4, t.tip5, t.tip6, t.tip7, t.tip8].map((tip, idx) => (
+              <div key={idx} className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/40 hover:border-indigo-500/30 transition-all relative z-10 group/tip">
+                <span className="text-[9px] font-black text-indigo-500 mb-1.5 block opacity-50 group-hover/tip:opacity-100">PRO TIP #{idx+1}</span>
+                <p className="text-[10px] leading-relaxed text-slate-400 font-medium">{tip}</p>
               </div>
             ))}
           </div>
@@ -346,10 +390,15 @@ const App: React.FC = () => {
                  <button onClick={() => setMode('single')} className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${mode === 'single' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>{t.singleMode}</button>
                  <button onClick={() => setMode('multi')} className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${mode === 'multi' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>{t.multiMode}</button>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Live Studio</span>
-              </div>
+              
+              <button 
+                onClick={handleAutoEnrich} 
+                disabled={isEnriching || (mode === 'single' && !text.trim())}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-black text-[10px] tracking-widest transition-all shadow-md group ${isEnriching ? 'bg-slate-800 border-slate-700 text-slate-500' : 'bg-gradient-to-r from-purple-600/20 to-indigo-600/20 border-indigo-500/30 text-indigo-400 hover:border-indigo-500/60 hover:from-purple-600/30 hover:to-indigo-600/30'}`}
+              >
+                <i className={`fa-solid ${isEnriching ? 'fa-spinner fa-spin' : 'fa-sparkles group-hover:rotate-12'} transition-transform`}></i>
+                {isEnriching ? t.enriching : t.autoEnrich}
+              </button>
             </div>
 
             {mode === 'single' ? (

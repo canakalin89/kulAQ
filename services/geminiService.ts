@@ -40,15 +40,39 @@ const speedInstructions: Record<SpeechSpeed, string> = {
   'fast': "Speak quickly and fluently, like a native speaker in a hurry."
 };
 
+/**
+ * Uses Gemini to automatically add emotional markers like [laughs], [sighs], 
+ * or UPPERCASE emphasis to a script based on context.
+ */
+export async function enrichTextWithAI(text: string): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `
+    You are an expert ELT (English Language Teaching) script editor. 
+    Analyze the following English text and insert natural human markers to make it sound realistic when read by a TTS engine.
+    Markers allowed: [laughs], [sighs], [coughs], [clears throat], [hesitates], and using UPPERCASE for stressed words.
+    Use these sparingly and only where they fit the emotional context. 
+    Do not change the actual words, only add markers or change case for emphasis.
+    
+    Text: "${text}"
+    
+    Return ONLY the enriched text.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: [{ parts: [{ text: prompt }] }],
+  });
+
+  return response.text || text;
+}
+
 export async function generateSingleSpeakerAudio(
   text: string,
   voice: VoiceName,
   tone: string = "",
   speed: SpeechSpeed = 'normal'
 ): Promise<AudioBuffer> {
-  // Correctly initialize GoogleGenAI with process.env.API_KEY
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
   const prompt = `${speedInstructions[speed]} ${tone ? `Tone: ${tone}.` : ""} Text to speak: ${text}`;
 
   const response = await ai.models.generateContent({
@@ -76,7 +100,6 @@ export async function generateMultiSpeakerAudio(
   speakers: SpeakerConfig[],
   speed: SpeechSpeed = 'normal'
 ): Promise<AudioBuffer> {
-  // Correctly initialize GoogleGenAI with process.env.API_KEY
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const speakerMap = speakers.reduce((acc, s) => {
