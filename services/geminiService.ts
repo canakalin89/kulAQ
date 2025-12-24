@@ -41,6 +41,18 @@ const speedInstructions: Record<SpeechSpeed, string> = {
 };
 
 /**
+ * CRITICAL PERFORMANCE INSTRUCTION
+ * Forces the model to perform sounds instead of reading them.
+ */
+const NON_VERBAL_CUE_INSTRUCTION = `
+STRICT PERFORMANCE RULE: 
+- Words inside square brackets like [laughs], [sighs], [clears throat], [coughs] are VOCAL ACTIONS.
+- NEVER, under any circumstances, speak the words inside the brackets. 
+- You MUST perform the actual sound effect (e.g., actually laugh or clear your throat). 
+- If you cannot perform the sound, just pause silently for 1 second.
+`;
+
+/**
  * Uses Gemini to automatically add emotional markers like [laughs], [sighs], 
  * or UPPERCASE emphasis to a script based on context.
  */
@@ -52,10 +64,11 @@ export async function enrichTextWithAI(text: string): Promise<string> {
     Markers allowed: [laughs], [sighs], [coughs], [clears throat], [hesitates], and using UPPERCASE for stressed words.
     Use these sparingly and only where they fit the emotional context. 
     Do not change the actual words, only add markers or change case for emphasis.
+    Ensure you don't overdo it. 1 or 2 markers per paragraph is usually enough.
     
-    Text: "${text}"
+    Current Text: "${text}"
     
-    Return ONLY the enriched text.
+    Return ONLY the enriched text, no explanations.
   `;
 
   const response = await ai.models.generateContent({
@@ -63,7 +76,7 @@ export async function enrichTextWithAI(text: string): Promise<string> {
     contents: [{ parts: [{ text: prompt }] }],
   });
 
-  return response.text || text;
+  return response.text?.trim() || text;
 }
 
 export async function generateSingleSpeakerAudio(
@@ -73,7 +86,12 @@ export async function generateSingleSpeakerAudio(
   speed: SpeechSpeed = 'normal'
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `${speedInstructions[speed]} ${tone ? `Tone: ${tone}.` : ""} Text to speak: ${text}`;
+  const prompt = `
+    ${NON_VERBAL_CUE_INSTRUCTION}
+    ${speedInstructions[speed]} 
+    ${tone ? `Perform with this tone: ${tone}.` : ""} 
+    Text to speak: ${text}
+  `;
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
@@ -111,7 +129,13 @@ export async function generateMultiSpeakerAudio(
     .map((item) => `${speakerMap[item.speakerId]}: ${item.text}`)
     .join("\n");
 
-  const prompt = `${speedInstructions[speed]} Generate a multi-speaker audio conversation with distinct voices for each participant. Dialogue:\n${conversationText}`;
+  const prompt = `
+    ${NON_VERBAL_CUE_INSTRUCTION}
+    ${speedInstructions[speed]} 
+    Generate a multi-speaker audio conversation with distinct voices for each participant. 
+    Dialogue to perform:
+    ${conversationText}
+  `;
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",

@@ -66,6 +66,8 @@ const translations = {
     autoEnrich: 'AI Duygu Ekle',
     enriching: 'Analiz Ediliyor...',
     proTips: 'Öğretmen İpuçları',
+    downloadWav: 'SESİ CİHAZA İNDİR (WAV)',
+    hqBadge: 'YÜKSEK KALİTE',
     techNote: 'Nasıl Yapıldı: Kulaq, Google Gemini 2.5 Flash TTS API ve React kullanılarak Can AKALIN tarafından geliştirilmiştir. Sesler gerçek zamanlı olarak yapay zeka tarafından sentezlenir.'
   },
   en: {
@@ -103,6 +105,8 @@ const translations = {
     autoEnrich: 'AI Auto-Enrich',
     enriching: 'Analyzing Context...',
     proTips: 'Pro Teacher Tips',
+    downloadWav: 'DOWNLOAD TO DEVICE (WAV)',
+    hqBadge: 'HIGH QUALITY',
     techNote: 'How it works: Kulaq is built using Google Gemini 2.5 Flash TTS API and React. Audio is synthesized in real-time using advanced neural models.'
   }
 };
@@ -153,6 +157,7 @@ const App: React.FC = () => {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const [activeBuffer, setActiveBuffer] = useState<AudioBuffer | null>(null);
+  const [activeWavUrl, setActiveWavUrl] = useState<string | null>(null);
 
   const updateProgress = useCallback(() => {
     if (!audioContextRef.current || !isPlaying) return;
@@ -259,7 +264,7 @@ const App: React.FC = () => {
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
   }, []);
 
-  const handlePlay = useCallback((bufferToPlay?: AudioBuffer, offset: number = 0) => {
+  const handlePlay = useCallback((bufferToPlay?: AudioBuffer, offset: number = 0, wavUrl?: string) => {
     const buffer = bufferToPlay || activeBuffer;
     if (!buffer) return;
     initAudio();
@@ -283,6 +288,7 @@ const App: React.FC = () => {
     sourceRef.current = source;
     setIsPlaying(true);
     setActiveBuffer(buffer);
+    if (wavUrl) setActiveWavUrl(wavUrl);
     setDuration(buffer.duration);
     if (offset === 0) setCurrentTime(0);
   }, [activeBuffer, stopActivePlayback]);
@@ -320,7 +326,7 @@ const App: React.FC = () => {
         speed,
         lang
       }, ...prev]);
-      handlePlay(buffer);
+      handlePlay(buffer, 0, url);
     } catch (err) {
       console.error(err);
     } finally {
@@ -350,7 +356,6 @@ const App: React.FC = () => {
             <button onClick={() => setLang('en')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${lang === 'en' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>EN 🇬🇧</button>
           </div>
           
-          {/* Prominent Pro Tips Button */}
           <button 
             onClick={() => setShowTips(!showTips)} 
             className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs tracking-widest transition-all border shadow-lg ${showTips ? 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-600/20' : 'bg-slate-900 border-slate-800 text-indigo-400 hover:border-indigo-500/40 hover:bg-slate-800'}`}
@@ -453,6 +458,7 @@ const App: React.FC = () => {
             )}
           </div>
 
+          {/* Player & Controls */}
           <div className="bg-slate-900/40 border border-slate-800 rounded-[2.5rem] p-8 backdrop-blur-xl shadow-2xl">
              <AudioVisualizer analyser={analyserRef.current} isPlaying={isPlaying} />
              
@@ -476,27 +482,54 @@ const App: React.FC = () => {
                </div>
              </div>
 
-             <div className="flex flex-col md:flex-row items-center gap-8 mt-6">
-                <div className="flex items-center gap-4">
-                   <button 
-                    onClick={isPlaying ? stopActivePlayback : () => handlePlay()} 
-                    disabled={!activeBuffer || isGenerating} 
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${!activeBuffer ? 'bg-slate-800 text-slate-700' : 'bg-indigo-600 text-white hover:scale-105 shadow-xl shadow-indigo-600/20 active:scale-95'}`}
-                   >
-                      <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-2xl`}></i>
-                   </button>
+             <div className="flex flex-col gap-6 mt-8">
+                {/* Dev Download Button */}
+                {activeWavUrl && (
+                  <div className="w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <a 
+                      href={activeWavUrl} 
+                      download={`kulaq-recording-${Date.now()}.wav`} 
+                      className="w-full h-24 rounded-[2rem] bg-gradient-to-br from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white flex items-center justify-between px-10 shadow-[0_20px_40px_rgba(16,185,129,0.25)] hover:shadow-[0_25px_50px_rgba(16,185,129,0.35)] hover:-translate-y-1 transition-all active:scale-[0.98] group"
+                    >
+                      <div className="flex items-center gap-6">
+                        <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md group-hover:scale-110 transition-transform">
+                          <i className="fa-solid fa-cloud-arrow-down text-2xl animate-bounce"></i>
+                        </div>
+                        <div className="text-left">
+                          <span className="block text-lg font-black tracking-tight leading-none mb-1">{t.downloadWav}</span>
+                          <span className="inline-flex items-center gap-2 px-2 py-0.5 bg-black/20 rounded-md text-[9px] font-black uppercase tracking-widest text-emerald-100">
+                            <i className="fa-solid fa-certificate"></i> {t.hqBadge}
+                          </span>
+                        </div>
+                      </div>
+                      <i className="fa-solid fa-chevron-right text-white/30 text-xl group-hover:translate-x-2 transition-transform"></i>
+                    </a>
+                  </div>
+                )}
+
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={isPlaying ? stopActivePlayback : () => handlePlay()} 
+                      disabled={!activeBuffer || isGenerating} 
+                      className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all ${!activeBuffer ? 'bg-slate-800 text-slate-700' : 'bg-indigo-600 text-white hover:scale-105 shadow-xl shadow-indigo-600/20 active:scale-95'}`}
+                    >
+                      <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-3xl`}></i>
+                    </button>
+                  </div>
+                  
+                  <button
+                    disabled={isGenerating || (mode === 'single' && !text.trim())}
+                    onClick={handleGenerate}
+                    className={`flex-1 h-20 rounded-3xl font-black text-base tracking-widest text-white transition-all relative overflow-hidden active:scale-[0.98] group ${isGenerating ? 'bg-slate-800 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:shadow-indigo-500/30 shadow-lg'}`}
+                  >
+                    {isGenerating ? (
+                      <span className="flex items-center justify-center gap-3"><i className="fa-solid fa-circle-notch fa-spin"></i> {t.generating}</span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-3"><i className="fa-solid fa-wand-magic-sparkles"></i> {t.generate}</span>
+                    )}
+                  </button>
                 </div>
-                <button
-                  disabled={isGenerating || (mode === 'single' && !text.trim())}
-                  onClick={handleGenerate}
-                  className={`flex-1 h-16 rounded-2xl font-black text-sm tracking-widest text-white transition-all relative overflow-hidden active:scale-[0.98] group ${isGenerating ? 'bg-slate-800 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:shadow-indigo-500/30 shadow-lg'}`}
-                >
-                  {isGenerating ? (
-                    <span className="flex items-center justify-center gap-3"><i className="fa-solid fa-circle-notch fa-spin"></i> {t.generating}</span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-3"><i className="fa-solid fa-wand-magic-sparkles"></i> {t.generate}</span>
-                  )}
-                </button>
              </div>
           </div>
         </div>
@@ -623,20 +656,21 @@ const App: React.FC = () => {
                          <span className="text-[8px] text-slate-700 font-mono mt-1">{item.timestamp.toLocaleString()}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <a href={item.audioUrl} download={`kulaq-exam-${item.id}.wav`} className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 hover:text-indigo-400 transition-all">
-                          <i className="fa-solid fa-cloud-arrow-down text-xs"></i>
+                        {/* More visible history download button */}
+                        <a href={item.audioUrl} download={`kulaq-exam-${item.id}.wav`} className="w-12 h-12 rounded-xl bg-emerald-600 border border-emerald-500 flex items-center justify-center text-white hover:bg-emerald-400 hover:scale-110 transition-all shadow-lg shadow-emerald-600/20">
+                          <i className="fa-solid fa-cloud-arrow-down text-base"></i>
                         </a>
                         <button 
                           onClick={() => deleteHistoryItem(item.id)}
-                          className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 hover:text-red-500 transition-all"
+                          className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 hover:text-red-500 transition-all"
                         >
-                          <i className="fa-solid fa-trash-can text-xs"></i>
+                          <i className="fa-solid fa-trash-can text-sm"></i>
                         </button>
                       </div>
                     </div>
                     <p className="text-[11px] text-slate-500 line-clamp-2 italic font-medium mb-4">"{item.text}"</p>
                     <button 
-                      onClick={() => { setActiveBuffer(null); fetch(item.audioUrl).then(r => r.arrayBuffer()).then(ab => audioContextRef.current?.decodeAudioData(ab)).then(b => b && handlePlay(b))}}
+                      onClick={() => { setActiveBuffer(null); fetch(item.audioUrl).then(r => r.arrayBuffer()).then(ab => audioContextRef.current?.decodeAudioData(ab)).then(b => b && handlePlay(b, 0, item.audioUrl))}}
                       className="w-full py-2.5 bg-slate-900 hover:bg-indigo-600/10 rounded-xl text-[9px] font-black text-slate-500 hover:text-indigo-400 transition-all uppercase tracking-widest"
                     >
                       {t.replay}
