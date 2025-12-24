@@ -1,0 +1,7 @@
+{
+  "name": "Kulaq",
+  "description": "A powerful, working ElevenLabs-style clone powered by Gemini 2.5 TTS. Generate high-quality single-speaker or multi-speaker audio with expressive controls.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
