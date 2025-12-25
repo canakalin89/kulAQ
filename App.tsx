@@ -246,6 +246,12 @@ const App: React.FC = () => {
     }
   };
 
+  const generateDownloadName = () => {
+    const voicePart = mode === 'single' ? selectedVoice : 'multi-speaker';
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    return `kulaq_${voicePart}_${selectedVibe}_${speed}_${date}.wav`;
+  };
+
   return (
     <div className={`flex flex-col h-screen overflow-hidden ${theme === 'dark' ? 'bg-black text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
       
@@ -403,7 +409,7 @@ const App: React.FC = () => {
                   </button>
 
                   {activeWavUrl && (
-                    <a href={activeWavUrl} download="kulaq-master.wav" className={`h-16 px-10 border rounded-2xl flex items-center gap-3 transition-all ${theme === 'dark' ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-500/20 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
+                    <a href={activeWavUrl} download={generateDownloadName()} className={`h-16 px-10 border rounded-2xl flex items-center gap-3 transition-all ${theme === 'dark' ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-500/20 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
                        <i className="fa-solid fa-cloud-arrow-down"></i>
                        <span className="text-[10px] font-bold uppercase tracking-widest">{t.download}</span>
                     </a>
