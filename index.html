@@ -16,16 +16,28 @@
       --panel: #0A0A0B;
       --border: rgba(255, 255, 255, 0.06);
       --accent: #6366f1;
+      --text: #fafafa;
+      --subtext: #94a3b8;
+    }
+
+    body.light-mode {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --border: rgba(0, 0, 0, 0.08);
+      --accent: #4f46e5;
+      --text: #0f172a;
+      --subtext: #64748b;
     }
 
     body {
       font-family: 'Inter', sans-serif;
       background-color: var(--bg);
-      color: #fafafa;
+      color: var(--text);
       margin: 0;
       height: 100vh;
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
+      transition: background-color 0.4s ease, color 0.4s ease;
     }
 
     h1, h2, h3, .font-display {
@@ -39,16 +51,21 @@
     /* Modern Scrollbar */
     ::-webkit-scrollbar { width: 3px; height: 3px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.2); border-radius: 10px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
     .premium-blur {
       backdrop-filter: blur(24px);
-      background: rgba(10, 10, 11, 0.85);
+      background: var(--panel);
+      opacity: 0.95;
     }
 
     .canvas-bg {
       background-image: radial-gradient(circle at 50% -20%, rgba(99, 102, 241, 0.1), transparent 70%);
+    }
+    
+    body.light-mode .canvas-bg {
+      background-image: radial-gradient(circle at 50% -20%, rgba(79, 70, 229, 0.05), transparent 70%);
     }
 
     .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -58,6 +75,9 @@
       50% { opacity: 0.6; }
     }
     .animate-pulse-soft { animation: pulse-soft 3s infinite; }
+    
+    /* Theme transitions */
+    * { transition: border-color 0.3s ease, background-color 0.3s ease; }
   </style>
   <script type="importmap">
   {
@@ -71,7 +91,7 @@
   }
   </script>
 </head>
-<body>
+<body class="dark-mode">
   <div id="root"></div>
 </body>
 </html>
