@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { VoiceName, SpeakerConfig, DialogueItem, AudioGenerationHistory, SpeechSpeed, AppLang, VoiceDescriptions } from './types';
-import { generateSingleSpeakerAudio, generateMultiSpeakerAudio, audioBufferToWavBlob, enrichTextWithAI } from './services/geminiService';
+import { generateSingleSpeakerAudio, generateMultiSpeakerAudio, audioBufferToWavBlob, enrichTextWithAI, EmotionVibe } from './services/geminiService';
 import AudioVisualizer from './components/AudioVisualizer';
 
 const TONE_PRESETS = [
@@ -17,6 +17,19 @@ const EXAM_SPEEDS: { id: SpeechSpeed; label: string; cefr: string }[] = [
   { id: 'fast', label: 'Native', cefr: 'C1-C2 Advanced' },
 ];
 
+const FX_CATALOG = [
+  { tag: '[laughs]', desc: { tr: 'Gülme', en: 'Laughing' }, icon: 'fa-face-laugh-beam' },
+  { tag: '[sighs]', desc: { tr: 'İç Çekme', en: 'Sighing' }, icon: 'fa-wind' },
+  { tag: '[clears throat]', desc: { tr: 'Boğaz Temizleme', en: 'Clearing Throat' }, icon: 'fa-comment-slash' },
+  { tag: '[breathes in]', desc: { tr: 'Nefes Alma', en: 'Inhale' }, icon: 'fa-lungs' },
+  { tag: '[whispers]', desc: { tr: 'Fısıltı', en: 'Whisper' }, icon: 'fa-volume-off' },
+  { tag: '[hesitates]', desc: { tr: 'Tereddüt', en: 'Hesitation' }, icon: 'fa-pause' },
+  { tag: '[sniffles]', desc: { tr: 'Burun Çekme', en: 'Sniffle' }, icon: 'fa-nose-glow' },
+  { tag: '[yawn]', desc: { tr: 'Esneme', en: 'Yawn' }, icon: 'fa-face-tired' },
+  { tag: '[shouts]', desc: { tr: 'Bağırma', en: 'Shout' }, icon: 'fa-bullhorn' },
+  { tag: 'UPPERCASE', desc: { tr: 'VURGU/BASKI', en: 'Emphasis' }, icon: 'fa-italic' },
+];
+
 const EXAM_TEMPLATES = {
   tr: [
     { label: 'Sınav Başlangıcı', text: 'Welcome to the English Listening Examination. Please listen carefully to the instructions.' },
@@ -29,6 +42,13 @@ const EXAM_TEMPLATES = {
     { label: 'Question Gap', text: '... Now you have thirty seconds to look at the questions for Part Two.' },
   ]
 };
+
+const EMOTION_CHIPS: { id: EmotionVibe; label: { tr: string, en: string }; icon: string }[] = [
+  { id: 'natural', label: { tr: 'Doğal', en: 'Natural' }, icon: 'fa-leaf' },
+  { id: 'friendly', label: { tr: 'Sempatik', en: 'Friendly' }, icon: 'fa-face-smile-beam' },
+  { id: 'tense', label: { tr: 'Gergin', en: 'Tense' }, icon: 'fa-face-grimace' },
+  { id: 'dramatic', label: { tr: 'Dramatik', en: 'Dramatic' }, icon: 'fa-masks-theater' },
+];
 
 const translations = {
   tr: {
@@ -49,15 +69,11 @@ const translations = {
     savedAssets: 'Arşivim',
     noAssets: 'Henüz bir sınav kaydı oluşturmadınız',
     replay: 'TEKRAR OYNAT',
-    tipsTitle: 'Kusursuz Seslendirme İçin İpuçları',
-    tip1: 'Duraklamalar: Virgül kısa, nokta orta, üç nokta (...) ise uzun es verir. Cümle aralarına koymayı unutmayın.',
-    tip2: 'Duygular: Metin içine [laughs], [sighs], [coughs] gibi ifadeler ekleyerek karakteri canlandırabilirsiniz.',
-    tip3: 'Vurgular: Önemli kelimeleri BÜYÜK HARFLE yazmak, AI\'nın o kelimeye baskı yapmasını sağlar.',
-    tip4: 'Dudak Payı: Cümlenin en sonuna "..." eklemek, sesin aniden kesilmesini önler ve doğal bir bitiş sağlar.',
-    tip5: 'Soru Tonu: Soru işaretlerini (?) cümlenin sonuna mutlaka ekleyin; intonasyon otomatik olarak yükselir.',
-    tip6: 'Doğal Dolgu: "Um...", "Uh...", "Well," gibi ifadeler diyaloğun daha insansı duyulmasını sağlar.',
-    tip7: 'Karakter Farkı: Diyaloglarda bir sesi "Fast", diğerini "Slow" yaparak hiyerarşi oluşturabilirsiniz.',
-    tip8: 'Tereddüt: Kelime aralarına tire (-) koyarak (Örn: I- I don\'t know) kekeleme efekti verebilirsiniz.',
+    tipsTitle: 'Kusursuz Seslendirme Rehberi',
+    tip1: 'Duraklamalar: Virgül kısa, nokta orta, üç nokta (...) ise uzun es verir.',
+    tip2: 'Duygular: Metin içine [laughs], [sighs], [coughs] ekleyerek karakteri canlandırabilirsiniz.',
+    tip3: 'Vurgular: Önemli kelimeleri BÜYÜK HARFLE yazın (Örn: I REALLY like this).',
+    tip4: 'Fısıltı: [whispers] komutuyla gizemli veya sessiz bir ton elde edin.',
     footerNote: 'ELT Materyal Geliştirme Aracı',
     male: 'Erkek',
     female: 'Kadın',
@@ -68,7 +84,10 @@ const translations = {
     proTips: 'Öğretmen İpuçları',
     downloadWav: 'SESİ CİHAZA İNDİR (WAV)',
     hqBadge: 'YÜKSEK KALİTE',
-    techNote: 'Nasıl Yapıldı: Kulaq, Google Gemini 2.5 Flash TTS API ve React kullanılarak Can AKALIN tarafından geliştirilmiştir. Sesler gerçek zamanlı olarak yapay zeka tarafından sentezlenir.'
+    selectVibe: 'Duygu Profili Seç',
+    fxDictionary: 'Efekt Sözlüğü',
+    fxUsage: 'Metne tıkla ve kopyala:',
+    techNote: 'Nasıl Yapıldı: Kulaq, Google Gemini 2.5 Flash TTS API ve React kullanılarak Can AKALIN tarafından geliştirilmiştir.'
   },
   en: {
     studioName: 'Kulaq',
@@ -88,15 +107,11 @@ const translations = {
     savedAssets: 'Asset Library',
     noAssets: 'No exam assets generated yet',
     replay: 'RE-PLAY',
-    tipsTitle: 'Pro Tips for Perfect Audio',
-    tip1: 'Pauses: Commas are short, periods medium, and ellipses (...) give long pauses. Vital for clarity.',
-    tip2: 'Emotions: Insert [laughs], [sighs], or [coughs] in square brackets to make characters feel alive.',
-    tip3: 'Emphasis: Write critical words in UPPERCASE to make the AI stress those specific terms.',
-    tip4: 'Tail: Adding "..." at the very end prevents abrupt audio cuts and creates a natural fade-out.',
-    tip5: 'Intonation: Always use question marks (?) to ensure the voice rises naturally at the end of queries.',
-    tip6: 'Fillers: Use "Um...", "Uh...", or "Well," to create a more realistic, human-like conversation flow.',
-    tip7: 'Dynamics: In dialogues, try setting one voice to "Fast" and another to "Slow" for social contrast.',
-    tip8: 'Hesitation: Use hyphens (e.g., I- I don\'t know) between repeated words to simulate a stutter.',
+    tipsTitle: 'Perfect Audio Guide',
+    tip1: 'Pauses: Commas are short, periods medium, and ellipses (...) give long pauses.',
+    tip2: 'Emotions: Insert [laughs], [sighs], [coughs] to make characters feel alive.',
+    tip3: 'Emphasis: Write words in UPPERCASE for vocal stress (e.g., I REALLY like this).',
+    tip4: 'Whisper: Use [whispers] for mysterious or quiet delivery.',
     footerNote: 'ELT Material Design Tool',
     male: 'Male',
     female: 'Female',
@@ -107,7 +122,10 @@ const translations = {
     proTips: 'Pro Teacher Tips',
     downloadWav: 'DOWNLOAD TO DEVICE (WAV)',
     hqBadge: 'HIGH QUALITY',
-    techNote: 'How it works: Kulaq is built using Google Gemini 2.5 Flash TTS API and React. Audio is synthesized in real-time using advanced neural models.'
+    selectVibe: 'Choose Emotion Profile',
+    fxDictionary: 'FX Dictionary',
+    fxUsage: 'Click to copy to text:',
+    techNote: 'How it works: Kulaq is built using Google Gemini 2.5 Flash TTS API and React.'
   }
 };
 
@@ -120,6 +138,8 @@ const formatTime = (seconds: number) => {
 const App: React.FC = () => {
   const [lang, setLang] = useState<AppLang>('tr');
   const [mode, setMode] = useState<'single' | 'multi'>('single');
+  const [selectedVibe, setSelectedVibe] = useState<EmotionVibe>('natural');
+  const [showFxDict, setShowFxDict] = useState(false);
   const t = translations[lang];
 
   // Audio Playback State
@@ -187,16 +207,19 @@ const App: React.FC = () => {
 
   // AI Enrichment Logic
   const handleAutoEnrich = async () => {
+    const targetContent = mode === 'single' ? text : dialogue.map(d => d.text).join(' ');
+    if (!targetContent.trim()) return;
+
     setIsEnriching(true);
     try {
       if (mode === 'single') {
-        const enriched = await enrichTextWithAI(text);
+        const enriched = await enrichTextWithAI(text, selectedVibe);
         setText(enriched);
       } else {
         const enrichedDialogue = await Promise.all(
           dialogue.map(async (item) => ({
             ...item,
-            text: await enrichTextWithAI(item.text)
+            text: await enrichTextWithAI(item.text, selectedVibe)
           }))
         );
         setDialogue(enrichedDialogue);
@@ -206,6 +229,11 @@ const App: React.FC = () => {
     } finally {
       setIsEnriching(false);
     }
+  };
+
+  const copyFxToClipboard = (tag: string) => {
+     navigator.clipboard.writeText(tag);
+     // Visual feedback can be added here
   };
 
   // Archive Management Logic
@@ -357,14 +385,47 @@ const App: React.FC = () => {
           </div>
           
           <button 
-            onClick={() => setShowTips(!showTips)} 
-            className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs tracking-widest transition-all border shadow-lg ${showTips ? 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-600/20' : 'bg-slate-900 border-slate-800 text-indigo-400 hover:border-indigo-500/40 hover:bg-slate-800'}`}
+            onClick={() => setShowFxDict(!showFxDict)} 
+            className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs tracking-widest transition-all border shadow-lg ${showFxDict ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-900 border-slate-800 text-indigo-400'}`}
           >
-            <i className={`fa-solid ${showTips ? 'fa-circle-xmark' : 'fa-lightbulb-on'} text-sm`}></i>
+            <i className="fa-solid fa-book-sparkles"></i>
+            {t.fxDictionary}
+          </button>
+
+          <button 
+            onClick={() => setShowTips(!showTips)} 
+            className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs tracking-widest transition-all border shadow-lg ${showTips ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
+          >
+            <i className={`fa-solid ${showTips ? 'fa-circle-xmark' : 'fa-lightbulb-on'}`}></i>
             {t.proTips}
           </button>
         </div>
       </header>
+
+      {/* FX Dictionary Panel */}
+      {showFxDict && (
+        <div className="w-full max-w-6xl mb-8 bg-indigo-950/20 border border-indigo-500/30 rounded-[2.5rem] p-8 animate-in fade-in zoom-in duration-300">
+           <div className="flex justify-between items-center mb-6">
+              <h3 className="text-sm font-black text-indigo-400 uppercase tracking-[0.2em] flex items-center gap-3">
+                <i className="fa-solid fa-spell-check"></i> {t.fxDictionary}
+              </h3>
+              <p className="text-[10px] text-slate-500 font-bold italic">{t.fxUsage}</p>
+           </div>
+           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {FX_CATALOG.map((fx, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => copyFxToClipboard(fx.tag)}
+                  className="bg-slate-950/60 border border-slate-800 hover:border-indigo-500/50 p-4 rounded-2xl transition-all group flex flex-col items-center gap-2"
+                >
+                  <i className={`fa-solid ${fx.icon} text-indigo-500/40 group-hover:text-indigo-400 group-hover:scale-125 transition-all mb-1`}></i>
+                  <span className="text-[11px] font-mono text-white font-bold">{fx.tag}</span>
+                  <span className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">{fx.desc[lang]}</span>
+                </button>
+              ))}
+           </div>
+        </div>
+      )}
 
       {/* Quick Guide */}
       {showTips && (
@@ -374,7 +435,7 @@ const App: React.FC = () => {
              <i className="fa-solid fa-wand-magic-sparkles text-indigo-400 animate-pulse"></i> {t.tipsTitle}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[t.tip1, t.tip2, t.tip3, t.tip4, t.tip5, t.tip6, t.tip7, t.tip8].map((tip, idx) => (
+            {[t.tip1, t.tip2, t.tip3, t.tip4].map((tip, idx) => (
               <div key={idx} className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/40 hover:border-indigo-500/30 transition-all relative z-10 group/tip">
                 <span className="text-[9px] font-black text-indigo-500 mb-1.5 block opacity-50 group-hover/tip:opacity-100">PRO TIP #{idx+1}</span>
                 <p className="text-[10px] leading-relaxed text-slate-400 font-medium">{tip}</p>
@@ -390,20 +451,37 @@ const App: React.FC = () => {
         {/* Editor Area */}
         <div className="lg:col-span-8 space-y-6">
           <div className="bg-slate-900/40 border border-slate-800 rounded-[2.5rem] p-8 backdrop-blur-xl shadow-2xl relative overflow-hidden">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
               <div className="flex bg-slate-950/50 p-1.5 rounded-2xl border border-slate-800 shadow-inner">
                  <button onClick={() => setMode('single')} className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${mode === 'single' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>{t.singleMode}</button>
                  <button onClick={() => setMode('multi')} className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${mode === 'multi' ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>{t.multiMode}</button>
               </div>
-              
-              <button 
-                onClick={handleAutoEnrich} 
-                disabled={isEnriching || (mode === 'single' && !text.trim())}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-black text-[10px] tracking-widest transition-all shadow-md group ${isEnriching ? 'bg-slate-800 border-slate-700 text-slate-500' : 'bg-gradient-to-r from-purple-600/20 to-indigo-600/20 border-indigo-500/30 text-indigo-400 hover:border-indigo-500/60 hover:from-purple-600/30 hover:to-indigo-600/30'}`}
-              >
-                <i className={`fa-solid ${isEnriching ? 'fa-spinner fa-spin' : 'fa-sparkles group-hover:rotate-12'} transition-transform`}></i>
-                {isEnriching ? t.enriching : t.autoEnrich}
-              </button>
+
+              {/* Emotion Selector & Enrich Button */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+                  {EMOTION_CHIPS.map(vibe => (
+                    <button
+                      key={vibe.id}
+                      onClick={() => setSelectedVibe(vibe.id)}
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black flex items-center gap-2 transition-all ${selectedVibe === vibe.id ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                      title={vibe.label[lang]}
+                    >
+                      <i className={`fa-solid ${vibe.icon}`}></i>
+                      <span className="hidden sm:inline uppercase tracking-tighter">{vibe.label[lang]}</span>
+                    </button>
+                  ))}
+                </div>
+                
+                <button 
+                  onClick={handleAutoEnrich} 
+                  disabled={isEnriching || (mode === 'single' && !text.trim())}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-black text-[10px] tracking-widest transition-all shadow-md group ${isEnriching ? 'bg-slate-800 border-slate-700 text-slate-500' : 'bg-gradient-to-r from-purple-600/20 to-indigo-600/20 border-indigo-500/30 text-indigo-400 hover:border-indigo-500/60 hover:from-purple-600/30 hover:to-indigo-600/30'}`}
+                >
+                  <i className={`fa-solid ${isEnriching ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles group-hover:rotate-12'} transition-transform`}></i>
+                  {isEnriching ? t.enriching : t.autoEnrich}
+                </button>
+              </div>
             </div>
 
             {mode === 'single' ? (
@@ -577,12 +655,13 @@ const App: React.FC = () => {
                            onClick={() => setSelectedVoice(v)}
                            className={`flex items-center justify-between px-5 py-4 rounded-2xl border transition-all ${selectedVoice === v ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-[0_0_20px_rgba(79,70,229,0.1)]' : 'bg-slate-950 border-slate-800 text-slate-600 hover:bg-slate-900'}`}
                          >
-                           <div className="flex flex-col items-start">
+                           <div className="flex flex-col items-start text-left">
                              <div className="flex items-center gap-2">
                                <span className="text-sm font-black tracking-tight">{v}</span>
                                <i className={`fa-solid ${VoiceDescriptions[v].gender === 'male' ? 'fa-mars text-blue-400' : 'fa-venus text-pink-400'} text-[10px]`}></i>
                              </div>
-                             <span className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">{VoiceDescriptions[v][lang]}</span>
+                             <span className="text-[9px] font-bold opacity-40 uppercase tracking-tighter leading-tight">{VoiceDescriptions[v][lang]}</span>
+                             <span className="text-[8px] opacity-30 italic mt-0.5">{VoiceDescriptions[v].traits}</span>
                            </div>
                            <i className={`fa-solid ${selectedVoice === v ? 'fa-circle-check' : 'fa-circle-play opacity-20'}`}></i>
                          </button>
@@ -656,7 +735,6 @@ const App: React.FC = () => {
                          <span className="text-[8px] text-slate-700 font-mono mt-1">{item.timestamp.toLocaleString()}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* More visible history download button */}
                         <a href={item.audioUrl} download={`kulaq-exam-${item.id}.wav`} className="w-12 h-12 rounded-xl bg-emerald-600 border border-emerald-500 flex items-center justify-center text-white hover:bg-emerald-400 hover:scale-110 transition-all shadow-lg shadow-emerald-600/20">
                           <i className="fa-solid fa-cloud-arrow-down text-base"></i>
                         </a>

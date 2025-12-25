@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Modality } from "@google/genai";
-import { VoiceName, SpeakerConfig, DialogueItem, SpeechSpeed } from "../types";
+import { VoiceName, SpeakerConfig, DialogueItem, SpeechSpeed, VoiceDescriptions } from "../types";
 
 function decode(base64: string): Uint8Array {
   const binaryString = atob(base64);
@@ -33,6 +33,8 @@ async function decodeAudioData(
 
 const SAMPLE_RATE = 24000;
 
+export type EmotionVibe = 'natural' | 'dramatic' | 'friendly' | 'tense';
+
 const speedInstructions: Record<SpeechSpeed, string> = {
   'v-slow': "Speak extremely slowly, pausing significantly between every word. Articulate every syllable with perfect clarity for a dictation exercise.",
   'slow': "Speak slowly and clearly, as if teaching a beginner English student. Emphasize correct pronunciation.",
@@ -41,34 +43,48 @@ const speedInstructions: Record<SpeechSpeed, string> = {
 };
 
 /**
- * CRITICAL PERFORMANCE INSTRUCTION
- * Forces the model to perform sounds instead of reading them.
+ * ULTRA-STRICT PERFORMANCE RULE
  */
 const NON_VERBAL_CUE_INSTRUCTION = `
 STRICT PERFORMANCE RULE: 
-- Words inside square brackets like [laughs], [sighs], [clears throat], [coughs] are VOCAL ACTIONS.
-- NEVER, under any circumstances, speak the words inside the brackets. 
-- You MUST perform the actual sound effect (e.g., actually laugh or clear your throat). 
-- If you cannot perform the sound, just pause silently for 1 second.
+- Words inside square brackets are VOCAL ACTIONS: [laughs], [sighs], [clears throat], [coughs], [breathes in], [breathes out], [hesitates], [whispers], [shouts], [chuckles], [sniffles], [yawn], [sobbing], [giggles].
+- DO NOT SAY THE WORDS INSIDE THE BRACKETS. 
+- PERFORM THE SOUND EFFECT NATURALLY.
+- UPPERCASE words must be spoken with HIGHER VOLUME and STRONGER STRESS.
 `;
 
-/**
- * Uses Gemini to automatically add emotional markers like [laughs], [sighs], 
- * or UPPERCASE emphasis to a script based on context.
- */
-export async function enrichTextWithAI(text: string): Promise<string> {
+const getVoiceStyleInstruction = (voice: VoiceName) => {
+  const desc = VoiceDescriptions[voice];
+  let instruction = `You are performing as ${voice}. Style: ${desc.traits}. `;
+  
+  if (voice === VoiceName.Fenrir) {
+    instruction += "IMPORTANT: Use a very deep, masculine, and gravelly voice. Avoid high pitches. ";
+  } else if (voice === VoiceName.Puck) {
+    instruction += "IMPORTANT: Use a clear, young male voice. Ensure it sounds like a boy/young man, not feminine. ";
+  } else if (desc.gender === 'male') {
+    instruction += "Ensure a resonant masculine tone. ";
+  }
+  
+  return instruction;
+};
+
+export async function enrichTextWithAI(text: string, vibe: EmotionVibe = 'natural'): Promise<string> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const vibePrompts: Record<EmotionVibe, string> = {
+    natural: "Add light, realistic human touches. A few [breathes in] or [clears throat] markers and natural word emphasis.",
+    dramatic: "Make it very expressive. Use long pauses with '...', add [sighs] or [sobbing], and use UPPERCASE for high-impact emotional words.",
+    friendly: "Make it warm and cheerful. Add occasional [laughs], [chuckles] or [giggles] and emphasize positive adjectives.",
+    tense: "Make it sound hesitant or nervous. Use many [hesitates] markers, '-' for stutters, [sniffles], and [clears throat] as if uncomfortable."
+  };
+
   const prompt = `
-    You are an expert ELT (English Language Teaching) script editor. 
-    Analyze the following English text and insert natural human markers to make it sound realistic when read by a TTS engine.
-    Markers allowed: [laughs], [sighs], [coughs], [clears throat], [hesitates], and using UPPERCASE for stressed words.
-    Use these sparingly and only where they fit the emotional context. 
-    Do not change the actual words, only add markers or change case for emphasis.
-    Ensure you don't overdo it. 1 or 2 markers per paragraph is usually enough.
+    You are a Voice Director. Transform this text into a performance script: "${text}"
+    Vibe: ${vibePrompts[vibe]}
     
-    Current Text: "${text}"
-    
-    Return ONLY the enriched text, no explanations.
+    Use these markers: [laughs], [sighs], [coughs], [clears throat], [breathes in], [breathes out], [hesitates], [whispers], [shouts], [chuckles], [sniffles], [yawn], [sobbing], [giggles].
+    Use UPPERCASE for stressed words.
+    Return ONLY the enriched text.
   `;
 
   const response = await ai.models.generateContent({
@@ -88,9 +104,10 @@ export async function generateSingleSpeakerAudio(
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `
     ${NON_VERBAL_CUE_INSTRUCTION}
+    ${getVoiceStyleInstruction(voice)}
     ${speedInstructions[speed]} 
-    ${tone ? `Perform with this tone: ${tone}.` : ""} 
-    Text to speak: ${text}
+    ${tone ? `Acting context: ${tone}.` : ""} 
+    Script: ${text}
   `;
 
   const response = await ai.models.generateContent({
@@ -121,19 +138,21 @@ export async function generateMultiSpeakerAudio(
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const speakerMap = speakers.reduce((acc, s) => {
-    acc[s.id] = s.name;
+    acc[s.id] = { name: s.name, voice: s.voice };
     return acc;
-  }, {} as Record<string, string>);
+  }, {} as Record<string, { name: string; voice: VoiceName }>);
 
   const conversationText = dialogue
-    .map((item) => `${speakerMap[item.speakerId]}: ${item.text}`)
+    .map((item) => `${speakerMap[item.speakerId].name}: ${item.text}`)
     .join("\n");
+
+  const voiceInstructions = speakers.map(s => getVoiceStyleInstruction(s.voice)).join("\n");
 
   const prompt = `
     ${NON_VERBAL_CUE_INSTRUCTION}
+    ${voiceInstructions}
     ${speedInstructions[speed]} 
-    Generate a multi-speaker audio conversation with distinct voices for each participant. 
-    Dialogue to perform:
+    Script:
     ${conversationText}
   `;
 
