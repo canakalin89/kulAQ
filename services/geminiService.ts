@@ -57,12 +57,32 @@ const getVoiceStyleInstruction = (voice: VoiceName) => {
   const desc = VoiceDescriptions[voice];
   let instruction = `You are performing as ${voice}. Style: ${desc.traits}. `;
   
+  // MASCULINITY REINFORCEMENT ENGINE
   if (voice === VoiceName.Fenrir) {
-    instruction += "IMPORTANT: Use a very deep, masculine, and gravelly voice. Avoid high pitches. ";
+    instruction += `
+      CRITICAL VOCAL PROFILE:
+      - Use an ULTRA-MASCULINE, deep, heavy chest-voice.
+      - Apply strong vocal fry and bass-baritone resonance.
+      - Avoid all breathy or soft feminine textures.
+      - The voice must sound like a large, powerful man with significant vocal weight.
+    `;
   } else if (voice === VoiceName.Puck) {
-    instruction += "IMPORTANT: Use a clear, young male voice. Ensure it sounds like a boy/young man, not feminine. ";
+    instruction += `
+      CRITICAL VOCAL PROFILE:
+      - Use a DISTINCTLY BOYISH, young male voice.
+      - Ensure the pitch is male-resonant (adolescent male), NOT feminine or high-pitched female.
+      - Avoid soft, airy, or 'pretty' vocal qualities. 
+      - Use the rougher, cracking quality of a young man's voice.
+    `;
+  } else if (voice === VoiceName.Charon) {
+    instruction += `
+      CRITICAL VOCAL PROFILE:
+      - Use an extremely old, raspy, and gravelly male voice.
+      - Maximum bass resonance, very low pitch.
+      - Sound like an ancient man with a deep, weathered throat.
+    `;
   } else if (desc.gender === 'male') {
-    instruction += "Ensure a resonant masculine tone. ";
+    instruction += "MANDATORY: Ensure a strictly masculine, resonant chest-voice. No feminine traits. ";
   }
   
   return instruction;
@@ -103,6 +123,7 @@ export async function generateSingleSpeakerAudio(
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `
+    GENDER ACCURACY IS PARAMOUNT.
     ${NON_VERBAL_CUE_INSTRUCTION}
     ${getVoiceStyleInstruction(voice)}
     ${speedInstructions[speed]} 
@@ -149,6 +170,7 @@ export async function generateMultiSpeakerAudio(
   const voiceInstructions = speakers.map(s => getVoiceStyleInstruction(s.voice)).join("\n");
 
   const prompt = `
+    GENDER ACCURACY IS PARAMOUNT. STRICTLY FOLLOW MASCULINE VS FEMININE PROFILES.
     ${NON_VERBAL_CUE_INSTRUCTION}
     ${voiceInstructions}
     ${speedInstructions[speed]} 
