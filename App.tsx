@@ -200,9 +200,9 @@ const App: React.FC = () => {
     try {
       let buffer: AudioBuffer;
       if (mode === 'single') {
-        buffer = await generateSingleSpeakerAudio(text, selectedVoice, "", speed);
+        buffer = await generateSingleSpeakerAudio(text, selectedVoice, "", speed, lang);
       } else {
-        buffer = await generateMultiSpeakerAudio(dialogue, speakers, speed);
+        buffer = await generateMultiSpeakerAudio(dialogue, speakers, speed, lang);
       }
       const blob = audioBufferToWavBlob(buffer);
       const url = URL.createObjectURL(blob);

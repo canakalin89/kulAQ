@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Modality } from "@google/genai";
-import { VoiceName, SpeakerConfig, DialogueItem, SpeechSpeed, VoiceDescriptions } from "../types";
+import { VoiceName, SpeakerConfig, DialogueItem, SpeechSpeed, VoiceDescriptions, AppLang } from "../types";
 
 function decode(base64: string): Uint8Array {
   const binaryString = atob(base64);
@@ -37,14 +37,11 @@ export type EmotionVibe = 'natural' | 'dramatic' | 'friendly' | 'tense';
 
 const speedInstructions: Record<SpeechSpeed, string> = {
   'v-slow': "Speak extremely slowly, pausing significantly between every word. Articulate every syllable with perfect clarity for a dictation exercise.",
-  'slow': "Speak slowly and clearly, as if teaching a beginner English student. Emphasize correct pronunciation.",
+  'slow': "Speak slowly and clearly, as if teaching a beginner student. Emphasize correct pronunciation.",
   'normal': "Speak at a natural, conversational pace.",
   'fast': "Speak quickly and fluently, like a native speaker in a hurry."
 };
 
-/**
- * ULTRA-STRICT PERFORMANCE RULE
- */
 const NON_VERBAL_CUE_INSTRUCTION = `
 STRICT PERFORMANCE RULE: 
 - Words inside square brackets are VOCAL ACTIONS: [laughs], [sighs], [clears throat], [coughs], [breathes in], [breathes out], [hesitates], [whispers], [shouts], [chuckles], [sniffles], [yawn], [sobbing], [giggles].
@@ -53,10 +50,16 @@ STRICT PERFORMANCE RULE:
 - UPPERCASE words must be spoken with HIGHER VOLUME and STRONGER STRESS.
 `;
 
-const getVoiceStyleInstruction = (voice: VoiceName) => {
+const getVoiceStyleInstruction = (voice: VoiceName, lang: AppLang) => {
   const desc = VoiceDescriptions[voice];
-  let instruction = `You are performing as ${voice}. Style: ${desc.traits}. `;
+  const langLabel = lang === 'tr' ? 'Turkish' : 'English';
+  let instruction = `You are performing as ${voice} in ${langLabel} language. Style: ${desc.traits}. `;
   
+  // Language Specific Nuances
+  if (lang === 'tr') {
+    instruction += "MANDATORY: Use a native Turkish accent. Pronounce Turkish characters (ğ, ş, ç, ö, ü, ı) perfectly. Use natural Turkish intonation. ";
+  }
+
   // MASCULINITY REINFORCEMENT ENGINE
   if (voice === VoiceName.Fenrir) {
     instruction += `
@@ -119,13 +122,15 @@ export async function generateSingleSpeakerAudio(
   text: string,
   voice: VoiceName,
   tone: string = "",
-  speed: SpeechSpeed = 'normal'
+  speed: SpeechSpeed = 'normal',
+  lang: AppLang = 'en'
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `
     GENDER ACCURACY IS PARAMOUNT.
+    SPEAK IN ${lang === 'tr' ? 'TURKISH' : 'ENGLISH'} AS A NATIVE SPEAKER.
     ${NON_VERBAL_CUE_INSTRUCTION}
-    ${getVoiceStyleInstruction(voice)}
+    ${getVoiceStyleInstruction(voice, lang)}
     ${speedInstructions[speed]} 
     ${tone ? `Acting context: ${tone}.` : ""} 
     Script: ${text}
@@ -154,7 +159,8 @@ export async function generateSingleSpeakerAudio(
 export async function generateMultiSpeakerAudio(
   dialogue: DialogueItem[],
   speakers: SpeakerConfig[],
-  speed: SpeechSpeed = 'normal'
+  speed: SpeechSpeed = 'normal',
+  lang: AppLang = 'en'
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -167,10 +173,11 @@ export async function generateMultiSpeakerAudio(
     .map((item) => `${speakerMap[item.speakerId].name}: ${item.text}`)
     .join("\n");
 
-  const voiceInstructions = speakers.map(s => getVoiceStyleInstruction(s.voice)).join("\n");
+  const voiceInstructions = speakers.map(s => getVoiceStyleInstruction(s.voice, lang)).join("\n");
 
   const prompt = `
     GENDER ACCURACY IS PARAMOUNT. STRICTLY FOLLOW MASCULINE VS FEMININE PROFILES.
+    SPEAK IN ${lang === 'tr' ? 'TURKISH' : 'ENGLISH'} AS A NATIVE SPEAKER.
     ${NON_VERBAL_CUE_INSTRUCTION}
     ${voiceInstructions}
     ${speedInstructions[speed]} 
