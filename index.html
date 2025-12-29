@@ -1,32 +1,36 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kulaq Studio | Master Grade AI Audio</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236366f1'/><path d='M30 50 L30 50 M40 30 L40 70 M50 20 L50 80 M60 35 L60 65 M70 45 L70 55' stroke='white' stroke-width='8' stroke-linecap='round'/></svg>">
+  <title>Kulaq Studio | Professional AI Audio</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231e1b4b'/><path d='M30 50 L30 50 M40 30 L40 70 M50 20 L50 80 M60 35 L60 65 M70 45 L70 55' stroke='white' stroke-width='8' stroke-linecap='round'/></svg>">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@500&display=swap');
     
     :root {
-      --bg: #000000;
-      --panel: #0A0A0B;
-      --border: rgba(255, 255, 255, 0.06);
-      --accent: #6366f1;
-      --text: #fafafa;
-      --subtext: #94a3b8;
-    }
-
-    body.light-mode {
       --bg: #f8fafc;
       --panel: #ffffff;
-      --border: rgba(0, 0, 0, 0.08);
-      --accent: #4f46e5;
+      --border: rgba(30, 27, 75, 0.08);
+      --accent: #1e1b4b; /* Lacivert */
+      --secondary: #f97316; /* Turuncu */
+      --info: #0ea5e9; /* Açık Mavi */
       --text: #0f172a;
       --subtext: #64748b;
+    }
+
+    body.dark-mode {
+      --bg: #020617;
+      --panel: #0f172a;
+      --border: rgba(255, 255, 255, 0.06);
+      --accent: #6366f1;
+      --secondary: #fb923c;
+      --info: #38bdf8;
+      --text: #f1f5f9;
+      --subtext: #94a3b8;
     }
 
     body {
@@ -48,36 +52,46 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Modern Scrollbar */
-    ::-webkit-scrollbar { width: 3px; height: 3px; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.2); border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    ::-webkit-scrollbar-thumb { background: rgba(30, 27, 75, 0.1); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--secondary); }
 
     .premium-blur {
       backdrop-filter: blur(24px);
       background: var(--panel);
-      opacity: 0.95;
+      border-bottom: 1px solid var(--border);
     }
 
     .canvas-bg {
-      background-image: radial-gradient(circle at 50% -20%, rgba(99, 102, 241, 0.1), transparent 70%);
+      background-image: radial-gradient(circle at 50% -20%, rgba(14, 165, 233, 0.05), transparent 70%);
     }
     
-    body.light-mode .canvas-bg {
-      background-image: radial-gradient(circle at 50% -20%, rgba(79, 70, 229, 0.05), transparent 70%);
+    body.dark-mode .canvas-bg {
+      background-image: radial-gradient(circle at 50% -20%, rgba(99, 102, 241, 0.1), transparent 70%);
     }
 
     .no-scrollbar::-webkit-scrollbar { display: none; }
-
-    @keyframes pulse-soft {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-    .animate-pulse-soft { animation: pulse-soft 3s infinite; }
     
-    /* Theme transitions */
-    * { transition: border-color 0.3s ease, background-color 0.3s ease; }
+    * { transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease; }
+    
+    .btn-orange {
+      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+      box-shadow: 0 4px 15px rgba(249, 115, 22, 0.2);
+    }
+    .btn-orange:hover {
+      box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3);
+      transform: translateY(-1px);
+    }
+    
+    .btn-navy {
+      background: #1e1b4b;
+      color: white;
+    }
+    
+    .card-shadow {
+      box-shadow: 0 10px 30px -10px rgba(30, 27, 75, 0.05);
+    }
   </style>
   <script type="importmap">
   {
@@ -91,7 +105,7 @@
   }
   </script>
 </head>
-<body class="dark-mode">
+<body class="light-mode">
   <div id="root"></div>
 </body>
 </html>

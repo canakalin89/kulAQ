@@ -33,11 +33,9 @@ async function decodeAudioData(
 
 const SAMPLE_RATE = 24000;
 
-export type EmotionVibe = 'natural' | 'dramatic' | 'friendly' | 'tense';
-
 const speedInstructions: Record<SpeechSpeed, string> = {
-  'v-slow': "Speak extremely slowly, pausing significantly between every word. Articulate every syllable with perfect clarity for a dictation exercise.",
-  'slow': "Speak slowly and clearly, as if teaching a beginner student. Emphasize correct pronunciation.",
+  'v-slow': "Speak extremely slowly, pausing significantly between every word. Articulate every syllable with perfect clarity.",
+  'slow': "Speak slowly and clearly, as if teaching a beginner student.",
   'normal': "Speak at a natural, conversational pace.",
   'fast': "Speak quickly and fluently, like a native speaker in a hurry."
 };
@@ -47,93 +45,52 @@ STRICT PERFORMANCE RULE:
 - Words inside square brackets are VOCAL ACTIONS: [laughs], [sighs], [clears throat], [coughs], [breathes in], [breathes out], [hesitates], [whispers], [shouts], [chuckles], [sniffles], [yawn], [sobbing], [giggles].
 - DO NOT SAY THE WORDS INSIDE THE BRACKETS. 
 - PERFORM THE SOUND EFFECT NATURALLY.
+- If the script contains brackets like "[laughs]", the AI must laugh, not speak the word "laughs".
 - UPPERCASE words must be spoken with HIGHER VOLUME and STRONGER STRESS.
 `;
 
-const getVoiceStyleInstruction = (voice: VoiceName, lang: AppLang) => {
+const getVoiceStyleInstruction = (voice: VoiceName, ttsLang: AppLang) => {
   const desc = VoiceDescriptions[voice];
-  const langLabel = lang === 'tr' ? 'Turkish' : 'English';
-  let instruction = `You are performing as ${voice} in ${langLabel} language. Style: ${desc.traits}. `;
+  const langLabel = ttsLang === 'tr' ? 'Turkish' : ttsLang === 'de' ? 'German' : 'English';
   
-  // Language Specific Nuances
-  if (lang === 'tr') {
-    instruction += "MANDATORY: Use a native Turkish accent. Pronounce Turkish characters (ğ, ş, ç, ö, ü, ı) perfectly. Use natural Turkish intonation. ";
+  let instruction = `You are performing as ${voice}. 
+  Target Language: ${langLabel}. 
+  MANDATORY: Speak in ${langLabel} with a perfect native accent. 
+  Style: ${desc.traits}. `;
+  
+  if (ttsLang === 'tr') {
+    instruction += "Apply native Turkish phonetics for characters like 'ğ, ş, ç, ö, ü, ı'. Use standard Istanbul Turkish intonation. ";
+  } else if (ttsLang === 'de') {
+    instruction += "Apply native German phonetics. Pay special attention to 'Umlaute' (ä, ö, ü) and 'ß'. Use natural German sentence melody (Satzmelodie). ";
   }
 
-  // MASCULINITY REINFORCEMENT ENGINE
+  // MASCULINITY REINFORCEMENT
   if (voice === VoiceName.Fenrir) {
-    instruction += `
-      CRITICAL VOCAL PROFILE:
-      - Use an ULTRA-MASCULINE, deep, heavy chest-voice.
-      - Apply strong vocal fry and bass-baritone resonance.
-      - Avoid all breathy or soft feminine textures.
-      - The voice must sound like a large, powerful man with significant vocal weight.
-    `;
+    instruction += "CRITICAL: Use an ULTRA-MASCULINE, deep, heavy chest-voice. Bass-baritone resonance. No soft feminine textures. ";
   } else if (voice === VoiceName.Puck) {
-    instruction += `
-      CRITICAL VOCAL PROFILE:
-      - Use a DISTINCTLY BOYISH, young male voice.
-      - Ensure the pitch is male-resonant (adolescent male), NOT feminine or high-pitched female.
-      - Avoid soft, airy, or 'pretty' vocal qualities. 
-      - Use the rougher, cracking quality of a young man's voice.
-    `;
+    instruction += "CRITICAL: Use a young male voice. Adolescent male resonance. Strictly masculine, not feminine. ";
   } else if (voice === VoiceName.Charon) {
-    instruction += `
-      CRITICAL VOCAL PROFILE:
-      - Use an extremely old, raspy, and gravelly male voice.
-      - Maximum bass resonance, very low pitch.
-      - Sound like an ancient man with a deep, weathered throat.
-    `;
+    instruction += "CRITICAL: Extremely old, raspy, gravelly male voice. Deep weathered throat. ";
   } else if (desc.gender === 'male') {
-    instruction += "MANDATORY: Ensure a strictly masculine, resonant chest-voice. No feminine traits. ";
+    instruction += "MANDATORY: Strictly masculine chest-voice. ";
   }
   
   return instruction;
 };
 
-export async function enrichTextWithAI(text: string, vibe: EmotionVibe = 'natural'): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const vibePrompts: Record<EmotionVibe, string> = {
-    natural: "Add light, realistic human touches. A few [breathes in] or [clears throat] markers and natural word emphasis.",
-    dramatic: "Make it very expressive. Use long pauses with '...', add [sighs] or [sobbing], and use UPPERCASE for high-impact emotional words.",
-    friendly: "Make it warm and cheerful. Add occasional [laughs], [chuckles] or [giggles] and emphasize positive adjectives.",
-    tense: "Make it sound hesitant or nervous. Use many [hesitates] markers, '-' for stutters, [sniffles], and [clears throat] as if uncomfortable."
-  };
-
-  const prompt = `
-    You are a Voice Director. Transform this text into a performance script: "${text}"
-    Vibe: ${vibePrompts[vibe]}
-    
-    Use these markers: [laughs], [sighs], [coughs], [clears throat], [breathes in], [breathes out], [hesitates], [whispers], [shouts], [chuckles], [sniffles], [yawn], [sobbing], [giggles].
-    Use UPPERCASE for stressed words.
-    Return ONLY the enriched text.
-  `;
-
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{ parts: [{ text: prompt }] }],
-  });
-
-  return response.text?.trim() || text;
-}
-
 export async function generateSingleSpeakerAudio(
   text: string,
   voice: VoiceName,
-  tone: string = "",
   speed: SpeechSpeed = 'normal',
-  lang: AppLang = 'en'
+  ttsLang: AppLang = 'tr'
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `
-    GENDER ACCURACY IS PARAMOUNT.
-    SPEAK IN ${lang === 'tr' ? 'TURKISH' : 'ENGLISH'} AS A NATIVE SPEAKER.
     ${NON_VERBAL_CUE_INSTRUCTION}
-    ${getVoiceStyleInstruction(voice, lang)}
+    ${getVoiceStyleInstruction(voice, ttsLang)}
     ${speedInstructions[speed]} 
-    ${tone ? `Acting context: ${tone}.` : ""} 
-    Script: ${text}
+    Script to be spoken in ${ttsLang.toUpperCase()}:
+    ${text}
   `;
 
   const response = await ai.models.generateContent({
@@ -160,7 +117,7 @@ export async function generateMultiSpeakerAudio(
   dialogue: DialogueItem[],
   speakers: SpeakerConfig[],
   speed: SpeechSpeed = 'normal',
-  lang: AppLang = 'en'
+  ttsLang: AppLang = 'tr'
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -173,15 +130,14 @@ export async function generateMultiSpeakerAudio(
     .map((item) => `${speakerMap[item.speakerId].name}: ${item.text}`)
     .join("\n");
 
-  const voiceInstructions = speakers.map(s => getVoiceStyleInstruction(s.voice, lang)).join("\n");
+  const voiceInstructions = speakers.map(s => getVoiceStyleInstruction(s.voice, ttsLang)).join("\n");
 
   const prompt = `
-    GENDER ACCURACY IS PARAMOUNT. STRICTLY FOLLOW MASCULINE VS FEMININE PROFILES.
-    SPEAK IN ${lang === 'tr' ? 'TURKISH' : 'ENGLISH'} AS A NATIVE SPEAKER.
     ${NON_VERBAL_CUE_INSTRUCTION}
+    SPEAK IN ${ttsLang.toUpperCase()} AS NATIVE SPEAKERS.
     ${voiceInstructions}
     ${speedInstructions[speed]} 
-    Script:
+    Dialogue Script:
     ${conversationText}
   `;
 
