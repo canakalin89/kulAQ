@@ -4,7 +4,9 @@ import { VoiceName, SpeakerConfig, DialogueItem, AudioGenerationHistory, SpeechS
 import { generateSingleSpeakerAudio, generateMultiSpeakerAudio, audioBufferToWavBlob } from './services/geminiService';
 import AudioVisualizer from './components/AudioVisualizer';
 
-// SVG Flags for cross-platform consistency
+type ViewState = 'landing' | 'studio';
+
+// Move helper components outside to prevent re-mounting on every render
 const FlagIcon: React.FC<{ lang: AppLang }> = ({ lang }) => {
   if (lang === 'tr') return (
     <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm">
@@ -85,7 +87,6 @@ const PERFORMANCE_TOOLS = [
 const translations = {
   tr: {
     studio: 'Kulaq',
-    tagline: 'PROFESYONEL SES STÜDYOSU',
     generate: 'SESLENDİR',
     history: 'KÜTÜPHANE',
     config: 'AYARLAR',
@@ -105,11 +106,20 @@ const translations = {
     close: 'Kapat',
     fullScreen: 'Tam Ekran',
     exitFullScreen: 'Çıkış',
-    fsWarning: 'Butonlar görünmüyorsa tam ekrana geçin'
+    fsWarning: 'Butonlar görünmüyorsa tam ekrana geçin',
+    getStarted: 'Stüdyoyu Başlat',
+    heroTitle: 'Yapay Zekanın En Doğal Sesi',
+    heroSub: 'ElevenLabs kalitesinde, Gemini 2.5 gücüyle profesyonel seslendirme ve diyaloglar oluşturun.',
+    feat1: 'Çoklu Karakter',
+    feat1Desc: 'Aynı anda 6 karaktere kadar diyaloglar oluşturun.',
+    feat2: 'CEFR Uyumlu',
+    feat2Desc: 'A1-C2 seviyelerinde özel hız ve vurgu kontrolleri.',
+    feat3: 'Stüdyo Kalitesi',
+    feat3Desc: '24kHz yüksek kaliteli WAV formatında indirme imkanı.',
+    credit: 'Can AKALIN tarafından dinleme sınavları oluşturmanıza yardımcı olması amacıyla yaratılmıştır.'
   },
   en: {
     studio: 'Kulaq',
-    tagline: 'PROFESSIONAL AUDIO STUDIO',
     generate: 'GENERATE',
     history: 'LIBRARY',
     config: 'SETTINGS',
@@ -129,11 +139,20 @@ const translations = {
     close: 'Close',
     fullScreen: 'Full Screen',
     exitFullScreen: 'Exit',
-    fsWarning: 'If buttons are hidden, use full screen'
+    fsWarning: 'If buttons are hidden, use full screen',
+    getStarted: 'Launch Studio',
+    heroTitle: 'The Most Natural AI Voice',
+    heroSub: 'Create professional voiceovers and dialogues with Gemini 2.5 power and ElevenLabs quality.',
+    feat1: 'Multi-Speaker',
+    feat1Desc: 'Create dialogues with up to 6 characters simultaneously.',
+    feat2: 'CEFR Compatible',
+    feat2Desc: 'Precise speed and stress control for A1-C2 levels.',
+    feat3: 'Studio Grade',
+    feat3Desc: 'Download your projects in high-quality 24kHz WAV.',
+    credit: 'Created by Can AKALIN to help you build listening exams.'
   },
   de: {
     studio: 'Kulaq',
-    tagline: 'PROFI-AUDIO-STUDIO',
     generate: 'GENERIEREN',
     history: 'BIBLIOTHEK',
     config: 'EINSTELLUNGEN',
@@ -145,19 +164,30 @@ const translations = {
     multi: 'DIALOG',
     placeholder: 'Text hier eingeben oder Beispiel wählen...',
     tipsTitle: 'Studio Guide',
-    tipsDesc: 'Nutzen Sie diese Techniken für natürliche Sprache:',
+    tipsDesc: 'Nutzen Sie diese Teknichken für natürliche Sprache:',
     uppercaseTip: 'Schreiben Sie Wörter, die BETONT werden sollen, GROSS.',
     pauseTip: 'Nutzen Sie "..." für lange Pausen und Kommas für kurze.',
-    breathTip: 'Nutzen Sie [breathes in] für natürliches Einatmen.',
+    breathTip: 'Nutzen Sie [breathes in] for natürliches Einatmen.',
     examples: 'BEISPIELE',
     close: 'Schließen',
     fullScreen: 'Vollbild',
     exitFullScreen: 'Beenden',
-    fsWarning: 'Vollbild nutzen, falls Buttons fehlen'
+    fsWarning: 'Vollbild nutzen, falls Buttons fehlen',
+    getStarted: 'Studio Starten',
+    heroTitle: 'Die natürlichste KI-Stimme',
+    heroSub: 'Erstellen Sie professionelle Voiceovers mit der Kraft von Gemini 2.5 und ElevenLabs-Qualität.',
+    feat1: 'Mehrere Sprecher',
+    feat1Desc: 'Erstellen Sie Dialoge mit bu zu 6 Charakteren gleichzeitig.',
+    feat2: 'CEFR-Konform',
+    feat2Desc: 'Präzise Tempo- und Betonungskontrolle für A1-C2.',
+    feat3: 'Studio-Qualität',
+    feat3Desc: 'Laden Sie Ihre Projekte in hochwertigem 24kHz WAV herunter.',
+    credit: 'Erstellt von Can AKALIN, um Ihnen beim Erstellen von Hörverstehenstests zu helfen.'
   }
 };
 
 const App: React.FC = () => {
+  const [currentView, setCurrentView] = useState<ViewState>('landing');
   const [lang, setLang] = useState<AppLang>('tr');
   const [ttsLang, setTtsLang] = useState<AppLang>('tr');
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
@@ -203,7 +233,6 @@ const App: React.FC = () => {
     document.body.className = theme === 'light' ? 'light-mode' : 'dark-mode';
   }, [theme]);
 
-  // Fullscreen listener
   useEffect(() => {
     const handleFsChange = () => setIsFullScreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFsChange);
@@ -499,201 +528,320 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className={`flex flex-col h-[100dvh] overflow-hidden ${theme === 'dark' ? 'bg-[#020617] text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
-      
-      {/* Header */}
-      <header className={`h-16 lg:h-20 flex items-center justify-between px-4 lg:px-8 border-b ${theme === 'dark' ? 'bg-[#0f172a] border-white/5' : 'bg-[#1e1b4b] border-indigo-900'} premium-blur z-[60] shadow-md shrink-0`}>
-        <div className="flex items-center gap-3 lg:gap-6">
-          <button onClick={toggleLibrary} className="lg:hidden w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl"><i className="fa-solid fa-folder-tree"></i></button>
-          <div className="flex items-center gap-2 group cursor-pointer">
-            <div className={`relative w-7 h-7 lg:w-9 lg:h-9 rounded-lg flex items-center justify-center shadow-lg overflow-hidden ${theme === 'dark' ? 'bg-indigo-600' : 'bg-orange-500'}`}>
-               <svg viewBox="0 0 100 100" className="w-4 h-4 lg:w-6 lg:h-6 text-white relative z-10">
-                 <rect x="20" y="40" width="8" height="20" rx="4" fill="currentColor" />
-                 <rect x="35" y="25" width="8" height="50" rx="4" fill="currentColor" />
-                 <rect x="50" y="15" width="8" height="70" rx="4" fill="currentColor" />
-                 <rect x="65" y="30" width="8" height="40" rx="4" fill="currentColor" />
-                 <rect x="80" y="45" width="8" height="10" rx="4" fill="currentColor" />
-               </svg>
+    <div className="w-full h-full">
+      {currentView === 'landing' ? (
+        <div className={`w-full min-h-screen relative overflow-y-visible ${theme === 'dark' ? 'bg-[#020617]' : 'bg-slate-50'}`}>
+          <nav className="h-20 px-4 md:px-8 flex items-center justify-between border-b border-indigo-900/10 backdrop-blur-md sticky top-0 z-50 bg-inherit/80">
+            <div className="flex items-center gap-3">
+               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${theme === 'dark' ? 'bg-indigo-600' : 'bg-orange-500'}`}>
+                  <i className="fa-solid fa-microphone-lines text-white"></i>
+               </div>
+               <h1 className={`text-xl md:text-2xl font-extrabold tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>
+                 {t.studio}<span className="text-orange-500">.</span>
+               </h1>
             </div>
-            <div className="flex flex-col">
-              <h1 className="text-lg lg:text-2xl font-extrabold tracking-tighter font-display leading-none text-white">
-                {t.studio}<span className="text-orange-500">.</span>
-              </h1>
-              <span className="hidden lg:block text-[9px] font-mono tracking-[0.3em] uppercase mt-1 leading-none text-indigo-300">{t.tagline}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 lg:gap-6">
-          <div className="hidden md:flex flex-col items-end">
-            <span className="text-[8px] font-bold text-indigo-200 uppercase tracking-widest opacity-60 mb-1">{t.fsWarning}</span>
-            <button onClick={toggleFullScreen} className={`px-4 py-1.5 rounded-full border flex items-center gap-2 transition-all ${theme === 'dark' ? 'border-white/10 text-slate-400 hover:text-white' : 'border-white/20 text-indigo-200 hover:text-white hover:bg-white/10'}`}>
-              <i className={`fa-solid ${isFullScreen ? 'fa-compress' : 'fa-expand'} text-xs`}></i>
-              <span className="text-[10px] font-bold uppercase tracking-widest">{isFullScreen ? t.exitFullScreen : t.fullScreen}</span>
-            </button>
-          </div>
-
-          <button onClick={toggleFullScreen} className="md:hidden w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center" title={t.fullScreen}>
-             <i className={`fa-solid ${isFullScreen ? 'fa-compress' : 'fa-expand'}`}></i>
-          </button>
-
-          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all ${theme === 'dark' ? 'border-white/10 text-slate-400 hover:text-white' : 'border-white/20 text-indigo-200 hover:text-white hover:bg-white/10'}`}>
-            <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} text-base`}></i>
-          </button>
-          
-          <button onClick={() => setShowTips(true)} className={`text-[10px] font-bold tracking-widest transition-all border px-4 py-2 rounded-full flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400 border-white/5 hover:text-white' : 'text-indigo-200 border-white/10 hover:text-white'}`}>
-            <i className="fa-solid fa-lightbulb text-orange-400"></i> <span className="hidden sm:inline">{lang === 'tr' ? 'REHBER' : 'GUIDE'}</span>
-          </button>
-          
-          <button onClick={toggleSettings} className="lg:hidden w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl"><i className="fa-solid fa-sliders"></i></button>
-        </div>
-      </header>
-
-      <main className="flex-1 flex overflow-hidden relative">
-        
-        {/* Left Library */}
-        <aside className={`fixed inset-y-0 left-0 w-80 lg:relative lg:w-64 lg:translate-x-0 z-50 transform transition-transform duration-300 ease-in-out border-r p-6 flex flex-col ${isLibraryOpen ? 'translate-x-0' : '-translate-x-full'} ${theme === 'dark' ? 'bg-[#0f172a] border-white/[0.04]' : 'bg-white lg:bg-transparent border-indigo-100'}`}>
-          {libraryPanel}
-        </aside>
-
-        {/* Center Stage */}
-        <section className="flex-1 flex flex-col overflow-hidden canvas-bg w-full">
-          {/* Editor Header */}
-          <div className="flex items-center justify-between px-4 lg:px-10 py-4 lg:py-6 shrink-0 overflow-x-auto no-scrollbar gap-4">
-             <div className={`flex p-1 rounded-xl border shrink-0 ${theme === 'dark' ? 'bg-white/[0.04] border-white/5' : 'bg-indigo-50/50 border-indigo-100'}`}>
-                <button onClick={() => setMode('single')} className={`px-4 lg:px-6 py-2 rounded-lg text-[10px] font-bold transition-all ${mode === 'single' ? (theme === 'dark' ? 'bg-white text-black' : 'bg-[#1e1b4b] text-white shadow-sm') : 'text-indigo-400'}`}>{t.single}</button>
-                <button onClick={() => setMode('multi')} className={`px-4 lg:px-6 py-2 rounded-lg text-[10px] font-bold transition-all ${mode === 'multi' ? (theme === 'dark' ? 'bg-white text-black' : 'bg-[#1e1b4b] text-white shadow-sm') : 'text-indigo-400'}`}>{t.multi}</button>
-             </div>
-
-             <div className="flex items-center gap-3 lg:gap-4 overflow-x-auto no-scrollbar pb-1">
-               <div className="flex items-center gap-1.5 shrink-0">
-                 {PERFORMANCE_TOOLS.map(fx => (
-                   <button key={fx.tag} onClick={() => insertFx(fx.tag)} className={`px-2.5 py-1.5 border rounded-lg text-[9px] font-bold text-indigo-500 transition-all shrink-0 ${theme === 'dark' ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white border-indigo-100 hover:bg-indigo-50'}`}>
-                     {fx.label[lang]}
+            <div className="flex items-center gap-3 md:gap-6">
+               <div className="flex p-1 rounded-full bg-slate-200 dark:bg-slate-800">
+                 {SPEECH_LANGS.map(l => (
+                   <button key={l.id} onClick={() => setLang(l.id)} className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all ${lang === l.id ? 'bg-white dark:bg-slate-700 shadow-sm' : 'opacity-40 hover:opacity-100'}`}>
+                     <FlagIcon lang={l.id} />
                    </button>
                  ))}
                </div>
-               
-               <div className="h-4 w-[1px] bg-indigo-100 dark:bg-white/10 shrink-0"></div>
-               <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0">{t.examples}:</span>
-                  {EXAMPLE_TEXTS[ttsLang].map((ex, i) => (
-                    <button key={i} onClick={() => loadExample(ex)} className={`px-2.5 py-1.5 border rounded-lg text-[9px] font-bold shrink-0 transition-all ${theme === 'dark' ? 'bg-white/5 border-white/5 text-slate-400 hover:text-white' : 'bg-[#0ea5e9]/5 border-[#0ea5e9]/20 text-[#0ea5e9] hover:bg-[#0ea5e9]/10'}`}>
-                      #{i+1}
-                    </button>
-                  ))}
-               </div>
-             </div>
-          </div>
+               <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="text-slate-400 hover:text-orange-500 transition-all">
+                 <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} text-lg`}></i>
+               </button>
+               <button onClick={() => setCurrentView('studio')} className="px-4 md:px-6 py-2 rounded-full bg-[#1e1b4b] dark:bg-orange-600 text-white font-bold text-xs md:text-sm tracking-widest hover:scale-105 transition-all shadow-xl">
+                 {t.getStarted}
+               </button>
+            </div>
+          </nav>
 
-          <div className="flex-1 px-4 lg:px-10 pb-4 lg:pb-10 overflow-hidden flex flex-col">
-            <div className={`flex-1 border rounded-[1.5rem] lg:rounded-[2.5rem] p-6 lg:p-12 overflow-hidden flex flex-col card-shadow relative ${theme === 'dark' ? 'bg-[#0f172a]/40 border-white/[0.05]' : 'bg-white border-indigo-50'}`}>
-              {mode === 'single' ? (
-                <textarea 
-                  value={text} 
-                  onChange={e => setText(e.target.value)} 
-                  placeholder={t.placeholder}
-                  className={`w-full h-full bg-transparent border-none outline-none focus:ring-0 text-xl lg:text-4xl font-light leading-relaxed custom-scrollbar resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
-                />
-              ) : (
-                <div className="h-full overflow-y-auto space-y-6 lg:space-y-10 pr-2 custom-scrollbar">
-                  {dialogue.map((item, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row gap-4 sm:gap-10 group">
-                      <div className="shrink-0 flex flex-row sm:flex-col gap-3 items-center sm:items-stretch">
-                        <div className={`px-3 lg:px-5 py-2 lg:py-2.5 border rounded-xl text-[10px] lg:text-[11px] font-bold uppercase min-w-[80px] lg:min-w-[120px] text-center ${theme === 'dark' ? 'bg-white/[0.03] border-white/[0.08] text-slate-400' : 'bg-indigo-50/50 border-indigo-100 text-indigo-600'}`}>
-                          {speakers.find(s => s.id === item.speakerId)?.name || 'Anonim'}
-                        </div>
-                        <button onClick={() => setDialogue(dialogue.filter((_, i) => i !== idx))} className="sm:opacity-0 group-hover:opacity-100 transition-all text-slate-400 hover:text-red-500 text-xs text-center p-1"><i className="fa-solid fa-trash"></i></button>
-                      </div>
-                      <textarea 
-                        value={item.text} 
-                        onChange={e => { const n = [...dialogue]; n[idx].text = e.target.value; setDialogue(n); }}
-                        className={`flex-1 bg-transparent border-none outline-none focus:ring-0 text-lg lg:text-2xl font-light pt-1 resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
-                        rows={1}
-                        onInput={(e: any) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                      />
-                    </div>
-                  ))}
-                  <button onClick={() => setDialogue([...dialogue, { speakerId: speakers[0].id, text: '' }])} className="w-full py-4 lg:py-8 border-2 border-dashed rounded-2xl lg:rounded-3xl text-indigo-300 dark:text-indigo-500 hover:text-indigo-600 hover:border-indigo-300 transition-all text-[10px] lg:text-[12px] font-bold uppercase tracking-widest">+ Satır Ekle</button>
-                </div>
-              )}
+          <main className="container mx-auto px-6 py-12 md:py-20 flex flex-col items-center text-center">
+            <div className="max-w-4xl space-y-6 md:space-y-8 mb-16 md:mb-20 animate-fade-in">
+               <span className="inline-block px-4 py-1.5 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] border border-orange-500/20">
+                 Gemini 2.5 Flash Audio Powered
+               </span>
+               <h2 className={`text-4xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.1] ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>
+                 {t.heroTitle}
+               </h2>
+               <p className="text-lg md:text-xl lg:text-2xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
+                 {t.heroSub}
+               </p>
+               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
+                  <button onClick={() => setCurrentView('studio')} className="px-8 md:px-10 py-4 md:py-5 rounded-2xl bg-[#1e1b4b] dark:bg-orange-600 text-white font-bold text-base md:text-lg tracking-widest hover:scale-105 transition-all shadow-2xl flex items-center gap-3">
+                    {t.getStarted} <i className="fa-solid fa-arrow-right-long"></i>
+                  </button>
+                  <button onClick={() => setShowTips(true)} className="px-8 md:px-10 py-4 md:py-5 rounded-2xl border-2 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-base md:text-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+                    {lang === 'tr' ? 'Neler Yapabilir?' : 'How it works?'}
+                  </button>
+               </div>
             </div>
 
-            <div className="mt-4 lg:mt-10 shrink-0">
-               <div className="mb-3 lg:mb-4 flex flex-col gap-2">
-                 <div className="flex justify-between px-1">
-                   <span className="text-[10px] font-mono text-slate-400 font-bold tracking-tighter">{currentTime.toFixed(1)}s</span>
-                   <span className="text-[10px] font-mono text-slate-400 font-bold tracking-tighter">{duration.toFixed(1)}s</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full max-w-6xl">
+               {[
+                 { icon: 'fa-people-group', color: 'bg-blue-500', title: t.feat1, desc: t.feat1Desc },
+                 { icon: 'fa-gauge-high', color: 'bg-orange-500', title: t.feat2, desc: t.feat2Desc },
+                 { icon: 'fa-waveform-path', color: 'bg-emerald-500', title: t.feat3, desc: t.feat3Desc }
+               ].map((feat, i) => (
+                 <div key={i} className={`p-8 lg:p-10 rounded-[2rem] lg:rounded-[2.5rem] border text-left transition-all hover:translate-y-[-8px] ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-indigo-900/5'}`}>
+                    <div className={`w-12 h-12 md:w-14 md:h-14 ${feat.color} rounded-2xl flex items-center justify-center text-white text-xl md:text-2xl shadow-lg mb-6 lg:mb-8`}>
+                      <i className={`fa-solid ${feat.icon}`}></i>
+                    </div>
+                    <h3 className={`text-xl md:text-2xl font-bold mb-3 md:mb-4 ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>{feat.title}</h3>
+                    <p className="text-sm md:text-base text-slate-400 leading-relaxed font-medium">{feat.desc}</p>
                  </div>
-                 <div className="relative h-2 lg:h-3 w-full group">
-                   <input 
-                    type="range"
-                    min="0"
-                    max={duration || 0}
-                    step="0.1"
-                    value={currentTime}
-                    onChange={handleSeek}
-                    className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer z-20 seek-slider"
-                   />
-                   <div className="absolute inset-0 h-full bg-indigo-50 dark:bg-slate-800/50 border border-indigo-100 dark:border-white/5 rounded-full z-0 overflow-hidden">
-                     <div 
-                        className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-100 ease-linear" 
-                        style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
-                      ></div>
+               ))}
+            </div>
+
+            <div className="mt-24 md:mt-40 w-full max-w-5xl rounded-[2rem] md:rounded-[3rem] border border-indigo-500/10 bg-gradient-to-b from-indigo-500/5 to-transparent p-px overflow-hidden">
+               <div className={`rounded-[1.9rem] md:rounded-[2.9rem] p-8 lg:p-20 relative ${theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white'}`}>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+                     <div className="text-left space-y-4 md:space-y-6">
+                        <h3 className={`text-3xl md:text-4xl font-black leading-tight ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>
+                          {lang === 'tr' ? 'Duygu ve Nefes Kontrolü' : 'Emotion & Breath Control'}
+                        </h3>
+                        <p className="text-sm md:text-lg text-slate-400 leading-relaxed font-medium">
+                          {lang === 'tr' 
+                            ? 'Sadece metni okumaz, metin içindeki [breathes in] gibi komutlarla sese hayat verir. VURGU kontrolü ile ana dili gibi konuşur.' 
+                            : 'It doesn\'t just read text, it breathes life into voices with cues like [breathes in]. Speak like a native with STRESS control.'}
+                        </p>
+                        <button onClick={() => setCurrentView('studio')} className="text-orange-500 font-bold flex items-center gap-2 hover:gap-4 transition-all text-sm md:text-base">
+                          {lang === 'tr' ? 'Hemen Dene' : 'Try Now'} <i className="fa-solid fa-arrow-right"></i>
+                        </button>
+                     </div>
+                     <div className="relative">
+                        <div className="absolute inset-0 bg-orange-500/20 blur-3xl rounded-full"></div>
+                        <div className={`relative p-6 md:p-8 rounded-2xl md:rounded-3xl border ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                           <p className="text-slate-400 italic font-mono text-xs md:text-sm leading-relaxed">
+                              "Hello there! [breathes in] ... This sounds INCREDIBLE, doesn't it?"
+                           </p>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+            <footer className="mt-24 md:mt-40 py-10 border-t border-indigo-900/10 w-full flex flex-col items-center gap-8">
+               <div className="flex flex-col items-center gap-3">
+                  <span className="font-black tracking-[0.3em] text-[10px] uppercase opacity-40">© 2025 Kulaq Studio AI</span>
+                  <p className={`text-[11px] md:text-xs font-medium max-w-md ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {t.credit.split('Can AKALIN').map((part, i, arr) => (
+                      <React.Fragment key={i}>
+                        {part}
+                        {i < arr.length - 1 && (
+                          <a 
+                            href="https://instagram.com/can_akalin" 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-orange-500 font-bold hover:underline"
+                          >
+                            Can AKALIN
+                          </a>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </p>
+               </div>
+               
+               <div className="flex gap-8 opacity-40">
+                 <i className="fa-brands fa-github text-xl hover:text-orange-500 cursor-pointer transition-all"></i>
+                 <i className="fa-brands fa-twitter text-xl hover:text-orange-500 cursor-pointer transition-all"></i>
+                 <a href="https://instagram.com/can_akalin" target="_blank" rel="noopener noreferrer">
+                    <i className="fa-brands fa-instagram text-xl hover:text-orange-500 cursor-pointer transition-all"></i>
+                 </a>
+               </div>
+            </footer>
+          </main>
+        </div>
+      ) : (
+        <div className={`flex flex-col h-[100dvh] overflow-hidden ${theme === 'dark' ? 'bg-[#020617] text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
+          <header className={`h-16 lg:h-20 flex items-center justify-between px-4 lg:px-8 border-b ${theme === 'dark' ? 'bg-[#0f172a] border-white/5' : 'bg-[#1e1b4b] border-indigo-900'} premium-blur z-[60] shadow-md shrink-0`}>
+            <div className="flex items-center gap-3 lg:gap-6">
+              <button onClick={() => setCurrentView('landing')} className="w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl hover:bg-orange-500 transition-all"><i className="fa-solid fa-house"></i></button>
+              <button onClick={toggleLibrary} className="lg:hidden w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl"><i className="fa-solid fa-folder-tree"></i></button>
+              <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setCurrentView('landing')}>
+                <div className={`relative w-7 h-7 lg:w-9 lg:h-9 rounded-lg flex items-center justify-center shadow-lg overflow-hidden ${theme === 'dark' ? 'bg-indigo-600' : 'bg-orange-500'}`}>
+                   <svg viewBox="0 0 100 100" className="w-4 h-4 lg:w-6 lg:h-6 text-white relative z-10">
+                     <rect x="20" y="40" width="8" height="20" rx="4" fill="currentColor" />
+                     <rect x="35" y="25" width="8" height="50" rx="4" fill="currentColor" />
+                     <rect x="50" y="15" width="8" height="70" rx="4" fill="currentColor" />
+                     <rect x="65" y="30" width="8" height="40" rx="4" fill="currentColor" />
+                     <rect x="80" y="45" width="8" height="10" rx="4" fill="currentColor" />
+                   </svg>
+                </div>
+                <div className="flex flex-col">
+                  <h1 className="text-lg lg:text-2xl font-extrabold tracking-tighter font-display leading-none text-white">
+                    {t.studio}<span className="text-orange-500">.</span>
+                  </h1>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 lg:gap-6">
+              <div className="hidden md:flex flex-col items-end">
+                <span className="text-[8px] font-bold text-indigo-200 uppercase tracking-widest opacity-60 mb-1">{t.fsWarning}</span>
+                <button onClick={toggleFullScreen} className={`px-4 py-1.5 rounded-full border flex items-center gap-2 transition-all ${theme === 'dark' ? 'border-white/10 text-slate-400 hover:text-white' : 'border-white/20 text-indigo-200 hover:text-white hover:bg-white/10'}`}>
+                  <i className={`fa-solid ${isFullScreen ? 'fa-compress' : 'fa-expand'} text-xs`}></i>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">{isFullScreen ? t.exitFullScreen : t.fullScreen}</span>
+                </button>
+              </div>
+
+              <button onClick={toggleFullScreen} className="md:hidden w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center" title={t.fullScreen}>
+                 <i className={`fa-solid ${isFullScreen ? 'fa-compress' : 'fa-expand'}`}></i>
+              </button>
+
+              <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all ${theme === 'dark' ? 'border-white/10 text-slate-400 hover:text-white' : 'border-white/20 text-indigo-200 hover:text-white hover:bg-white/10'}`}>
+                <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} text-base`}></i>
+              </button>
+              
+              <button onClick={() => setShowTips(true)} className={`text-[10px] font-bold tracking-widest transition-all border px-4 py-2 rounded-full flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400 border-white/5 hover:text-white' : 'text-indigo-200 border-white/10 hover:text-white'}`}>
+                <i className="fa-solid fa-lightbulb text-orange-400"></i> <span className="hidden sm:inline">{lang === 'tr' ? 'REHBER' : 'GUIDE'}</span>
+              </button>
+              
+              <button onClick={toggleSettings} className="lg:hidden w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl"><i className="fa-solid fa-sliders"></i></button>
+            </div>
+          </header>
+
+          <main className="flex-1 flex overflow-hidden relative">
+            <aside className={`fixed inset-y-0 left-0 w-80 lg:relative lg:w-64 lg:translate-x-0 z-50 transform transition-transform duration-300 ease-in-out border-r p-6 flex flex-col ${isLibraryOpen ? 'translate-x-0' : '-translate-x-full'} ${theme === 'dark' ? 'bg-[#0f172a] border-white/[0.04]' : 'bg-white lg:bg-transparent border-indigo-100'}`}>
+              {libraryPanel}
+            </aside>
+
+            <section className="flex-1 flex flex-col overflow-hidden canvas-bg w-full">
+              <div className="flex items-center justify-between px-4 lg:px-10 py-4 lg:py-6 shrink-0 overflow-x-auto no-scrollbar gap-4">
+                 <div className={`flex p-1 rounded-xl border shrink-0 ${theme === 'dark' ? 'bg-white/[0.04] border-white/5' : 'bg-indigo-50/50 border-indigo-100'}`}>
+                    <button onClick={() => setMode('single')} className={`px-4 lg:px-6 py-2 rounded-lg text-[10px] font-bold transition-all ${mode === 'single' ? (theme === 'dark' ? 'bg-white text-black' : 'bg-[#1e1b4b] text-white shadow-sm') : 'text-indigo-400'}`}>{t.single}</button>
+                    <button onClick={() => setMode('multi')} className={`px-4 lg:px-6 py-2 rounded-lg text-[10px] font-bold transition-all ${mode === 'multi' ? (theme === 'dark' ? 'bg-white text-black' : 'bg-[#1e1b4b] text-white shadow-sm') : 'text-indigo-400'}`}>{t.multi}</button>
+                 </div>
+
+                 <div className="flex items-center gap-3 lg:gap-4 overflow-x-auto no-scrollbar pb-1">
+                   <div className="flex items-center gap-1.5 shrink-0">
+                     {PERFORMANCE_TOOLS.map(fx => (
+                       <button key={fx.tag} onClick={() => insertFx(fx.tag)} className={`px-2.5 py-1.5 border rounded-lg text-[9px] font-bold text-indigo-500 transition-all shrink-0 ${theme === 'dark' ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white border-indigo-100 hover:bg-indigo-50'}`}>
+                         {fx.label[lang]}
+                       </button>
+                     ))}
+                   </div>
+                   
+                   <div className="h-4 w-[1px] bg-indigo-100 dark:bg-white/10 shrink-0"></div>
+                   <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0">{t.examples}:</span>
+                      {EXAMPLE_TEXTS[ttsLang].map((ex, i) => (
+                        <button key={i} onClick={() => loadExample(ex)} className={`px-2.5 py-1.5 border rounded-lg text-[9px] font-bold shrink-0 transition-all ${theme === 'dark' ? 'bg-white/5 border-white/5 text-slate-400 hover:text-white' : 'bg-[#0ea5e9]/5 border-[#0ea5e9]/20 text-[#0ea5e9] hover:bg-[#0ea5e9]/10'}`}>
+                          #{i+1}
+                        </button>
+                      ))}
                    </div>
                  </div>
-               </div>
+              </div>
 
-               <AudioVisualizer analyser={analyserRef.current} isPlaying={isPlaying} />
-               
-               <div className="mt-4 lg:mt-10 flex flex-col lg:flex-row items-center gap-4 lg:gap-12">
-                  <div className="flex items-center gap-3 lg:gap-5 w-full lg:w-auto justify-between lg:justify-start">
-                    <div className={`flex items-center gap-2 lg:gap-3 p-1.5 rounded-2xl border shadow-sm ${theme === 'dark' ? 'bg-slate-900/50 border-white/5' : 'bg-slate-100/50 border-slate-200/50'}`}>
-                      <button onClick={() => skip(-5)} className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300 dark:text-slate-700' : 'text-[#1e1b4b] dark:text-indigo-400 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm'}`} title="-5s"><i className="fa-solid fa-backward-step text-sm lg:text-xl"></i></button>
-                      <button onClick={stopAudio} className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300 dark:text-slate-700' : 'text-red-500 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm'}`} title="Stop"><i className="fa-solid fa-stop text-sm lg:text-xl"></i></button>
-                      <button onClick={togglePlayback} className={`w-12 h-12 lg:w-16 lg:h-16 rounded-2xl flex items-center justify-center transition-all ${!activeBuffer ? 'bg-slate-200 dark:bg-slate-800 text-slate-400' : 'bg-[#1e1b4b] dark:bg-orange-600 text-white shadow-xl hover:scale-105 active:scale-95'}`}><i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-lg lg:text-2xl`}></i></button>
-                      <button onClick={() => skip(5)} className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300 dark:text-slate-700' : 'text-[#1e1b4b] dark:text-indigo-400 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm'}`} title="+5s"><i className="fa-solid fa-forward-step text-sm lg:text-xl"></i></button>
+              <div className="flex-1 px-4 lg:px-10 pb-4 lg:pb-10 overflow-hidden flex flex-col">
+                <div className={`flex-1 border rounded-[1.5rem] lg:rounded-[2.5rem] p-6 lg:p-12 overflow-hidden flex flex-col card-shadow relative ${theme === 'dark' ? 'bg-[#0f172a]/40 border-white/[0.05]' : 'bg-white border-indigo-50'}`}>
+                  {mode === 'single' ? (
+                    <textarea 
+                      value={text} 
+                      onChange={e => setText(e.target.value)} 
+                      placeholder={t.placeholder}
+                      className={`w-full h-full bg-transparent border-none outline-none focus:ring-0 text-xl lg:text-4xl font-light leading-relaxed custom-scrollbar resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
+                    />
+                  ) : (
+                    <div className="h-full overflow-y-auto space-y-6 lg:sort-y-10 pr-2 custom-scrollbar">
+                      {dialogue.map((item, idx) => (
+                        <div key={idx} className="flex flex-col sm:flex-row gap-4 sm:gap-10 group">
+                          <div className="shrink-0 flex flex-row sm:flex-col gap-3 items-center sm:items-stretch">
+                            <div className={`px-3 lg:px-5 py-2 lg:py-2.5 border rounded-xl text-[10px] lg:text-[11px] font-bold uppercase min-w-[80px] lg:min-w-[120px] text-center ${theme === 'dark' ? 'bg-white/[0.03] border-white/[0.08] text-slate-400' : 'bg-indigo-50/50 border-indigo-100 text-indigo-600'}`}>
+                              {speakers.find(s => s.id === item.speakerId)?.name || 'Anonim'}
+                            </div>
+                            <button onClick={() => setDialogue(dialogue.filter((_, i) => i !== idx))} className="sm:opacity-0 group-hover:opacity-100 transition-all text-slate-400 hover:text-red-500 text-xs text-center p-1"><i className="fa-solid fa-trash"></i></button>
+                          </div>
+                          <textarea 
+                            value={item.text} 
+                            onChange={e => { const n = [...dialogue]; n[idx].text = e.target.value; setDialogue(n); }}
+                            className={`flex-1 bg-transparent border-none outline-none focus:ring-0 text-lg lg:text-2xl font-light pt-1 resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
+                            rows={1}
+                            onInput={(e: any) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+                          />
+                        </div>
+                      ))}
+                      <button onClick={() => setDialogue([...dialogue, { speakerId: speakers[0].id, text: '' }])} className="w-full py-4 lg:py-8 border-2 border-dashed rounded-2xl lg:rounded-3xl text-indigo-300 dark:text-indigo-500 hover:text-indigo-600 hover:border-indigo-300 transition-all text-[10px] lg:text-[12px] font-bold uppercase tracking-widest">+ Satır Ekle</button>
                     </div>
+                  )}
+                </div>
 
-                    <div className="flex flex-col gap-0 ml-2">
-                      <span className={`font-mono text-sm lg:text-xl font-bold tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>
-                        {Math.floor(currentTime / 60)}:{(currentTime % 60).toFixed(1).padStart(4, '0')}
-                      </span>
-                      <span className="text-[9px] lg:text-[10px] text-slate-400 font-bold uppercase tracking-widest">Time</span>
-                    </div>
-                  </div>
+                <div className="mt-4 lg:mt-10 shrink-0">
+                   <div className="mb-3 lg:mb-4 flex flex-col gap-2">
+                     <div className="flex justify-between px-1">
+                       <span className="text-[10px] font-mono text-slate-400 font-bold tracking-tighter">{currentTime.toFixed(1)}s</span>
+                       <span className="text-[10px] font-mono text-slate-400 font-bold tracking-tighter">{duration.toFixed(1)}s</span>
+                     </div>
+                     <div className="relative h-2 lg:h-3 w-full group">
+                       <input 
+                        type="range"
+                        min="0"
+                        max={duration || 0}
+                        step="0.1"
+                        value={currentTime}
+                        onChange={handleSeek}
+                        className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer z-20 seek-slider"
+                       />
+                       <div className="absolute inset-0 h-full bg-indigo-50 dark:bg-slate-800/50 border border-indigo-100 dark:border-white/5 rounded-full z-0 overflow-hidden">
+                         <div 
+                            className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-100 ease-linear" 
+                            style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                          ></div>
+                       </div>
+                     </div>
+                   </div>
 
-                  <div className="flex gap-2 lg:gap-4 w-full lg:flex-1">
-                    <button onClick={handleGenerate} disabled={isGenerating} className={`flex-1 h-12 lg:h-16 rounded-xl lg:rounded-2xl font-bold text-xs lg:text-sm tracking-[0.2em] lg:tracking-[0.4em] uppercase text-white transition-all btn-orange active:scale-[0.98] shadow-lg`}>
-                      {isGenerating ? <i className="fa-solid fa-circle-notch fa-spin mr-3"></i> : <i className="fa-solid fa-bolt mr-3"></i>}
-                      {isGenerating ? '...' : t.generate}
-                    </button>
+                   <AudioVisualizer analyser={analyserRef.current} isPlaying={isPlaying} />
+                   
+                   <div className="mt-4 lg:mt-10 flex flex-col lg:flex-row items-center gap-4 lg:gap-12">
+                      <div className="flex items-center gap-3 lg:gap-5 w-full lg:w-auto justify-between lg:justify-start">
+                        <div className={`flex items-center gap-2 lg:gap-3 p-1.5 rounded-2xl border shadow-sm ${theme === 'dark' ? 'bg-slate-900/50 border-white/5' : 'bg-slate-100/50 border-slate-200/50'}`}>
+                          <button onClick={() => skip(-5)} className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300 dark:text-slate-700' : 'text-[#1e1b4b] dark:text-indigo-400 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm'}`} title="-5s"><i className="fa-solid fa-backward-step text-sm lg:text-xl"></i></button>
+                          <button onClick={stopAudio} className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300 dark:text-slate-700' : 'text-red-500 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm'}`} title="Stop"><i className="fa-solid fa-stop text-sm lg:text-xl"></i></button>
+                          <button onClick={togglePlayback} className={`w-12 h-12 lg:w-16 lg:h-16 rounded-2xl flex items-center justify-center transition-all ${!activeBuffer ? 'bg-slate-200 dark:bg-slate-800 text-slate-400' : 'bg-[#1e1b4b] dark:bg-orange-600 text-white shadow-xl hover:scale-105 active:scale-95'}`}><i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-lg lg:text-2xl`}></i></button>
+                          <button onClick={() => skip(5)} className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300 dark:text-slate-700' : 'text-[#1e1b4b] dark:text-indigo-400 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm'}`} title="+5s"><i className="fa-solid fa-forward-step text-sm lg:text-xl"></i></button>
+                        </div>
 
-                    {activeWavUrl && (
-                      <a href={activeWavUrl} download={generateDownloadName()} className={`h-12 lg:h-16 px-5 lg:px-10 border rounded-xl lg:rounded-2xl flex items-center justify-center lg:justify-start gap-4 transition-all ${theme === 'dark' ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-500/20 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 shadow-sm'}`}>
-                         <i className="fa-solid fa-cloud-arrow-down text-lg"></i>
-                         <span className="hidden sm:inline text-[10px] lg:text-[11px] font-bold uppercase tracking-widest">{t.download}</span>
-                      </a>
-                    )}
-                  </div>
-               </div>
-            </div>
-          </div>
-        </section>
+                        <div className="flex flex-col gap-0 ml-2">
+                          <span className={`font-mono text-sm lg:text-xl font-bold tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>
+                            {Math.floor(currentTime / 60)}:{(currentTime % 60).toFixed(1).padStart(4, '0')}
+                          </span>
+                          <span className="text-[9px] lg:text-[10px] text-slate-400 font-bold uppercase tracking-widest">Time</span>
+                        </div>
+                      </div>
 
-        {/* Right Sidebar */}
-        <aside className={`fixed inset-y-0 right-0 w-80 lg:relative transform transition-transform duration-300 ease-in-out border-l p-8 flex flex-col z-50 ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'} lg:translate-x-0 ${theme === 'dark' ? 'bg-[#0f172a] border-white/[0.04]' : 'bg-white lg:bg-transparent border-indigo-100'}`}>
-           {settingsPanel}
-        </aside>
+                      <div className="flex gap-2 lg:gap-4 w-full lg:flex-1">
+                        <button onClick={handleGenerate} disabled={isGenerating} className={`flex-1 h-12 lg:h-16 rounded-xl lg:rounded-2xl font-bold text-xs lg:text-sm tracking-[0.2em] lg:tracking-[0.4em] uppercase text-white transition-all btn-orange active:scale-[0.98] shadow-lg`}>
+                          {isGenerating ? <i className="fa-solid fa-circle-notch fa-spin mr-3"></i> : <i className="fa-solid fa-bolt mr-3"></i>}
+                          {isGenerating ? '...' : t.generate}
+                        </button>
 
-        {/* Mobile Backdrop */}
-        {(isLibraryOpen || isSettingsOpen) && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => { setIsLibraryOpen(false); setIsSettingsOpen(false); }}></div>
-        )}
+                        {activeWavUrl && (
+                          <a href={activeWavUrl} download={generateDownloadName()} className={`h-12 lg:h-16 px-5 lg:px-10 border rounded-xl lg:rounded-2xl flex items-center justify-center lg:justify-start gap-4 transition-all ${theme === 'dark' ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-500/20 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 shadow-sm'}`}>
+                             <i className="fa-solid fa-cloud-arrow-down text-lg"></i>
+                             <span className="hidden sm:inline text-[10px] lg:text-[11px] font-bold uppercase tracking-widest">{t.download}</span>
+                          </a>
+                        )}
+                      </div>
+                   </div>
+                </div>
+              </div>
+            </section>
 
-      </main>
+            <aside className={`fixed inset-y-0 right-0 w-80 lg:relative transform transition-transform duration-300 ease-in-out border-l p-8 flex flex-col z-50 ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'} lg:translate-x-0 ${theme === 'dark' ? 'bg-[#0f172a] border-white/[0.04]' : 'bg-white lg:bg-transparent border-indigo-100'}`}>
+               {settingsPanel}
+            </aside>
 
-      {/* Guide Modal */}
+            {(isLibraryOpen || isSettingsOpen) && (
+              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => { setIsLibraryOpen(false); setIsSettingsOpen(false); }}></div>
+            )}
+          </main>
+        </div>
+      )}
+
       {showTips && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-[#1e1b4b]/80 backdrop-blur-md" onClick={() => setShowTips(false)}></div>
@@ -746,8 +894,12 @@ const App: React.FC = () => {
             background-color: var(--bg);
           }
         }
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 1s ease-out forwards; }
       `}</style>
-
     </div>
   );
 };
