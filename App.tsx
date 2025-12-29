@@ -17,12 +17,29 @@ const SPEECH_LANGS: { id: AppLang; label: string; flag: string }[] = [
   { id: 'de', label: 'Deutsch', flag: '🇩🇪' },
 ];
 
+const EXAMPLE_TEXTS: Record<AppLang, string[]> = {
+  tr: [
+    "Merhaba! Kulaq Studio'ya hoş geldiniz. [laughs] Bu sistem ile profesyonel seslendirmeler yapabilirsiniz.",
+    "Dikkat, dikkat! Uçuşumuz için biniş kapıları kapanmak üzeredir. [clears throat] Lütfen hazırlıklı olun.",
+    "Bugün hava çok güzel, değil mi? ... [sighs] Belki biraz yürüyüş yapmalıyız."
+  ],
+  en: [
+    "Hello there! Welcome to Kulaq Studio. [laughs] You can create professional voiceovers with this system.",
+    "Attention please! The boarding gates for your flight are about to close. [clears throat] Please be ready.",
+    "The weather is lovely today, isn't it? ... [sighs] Maybe we should go for a walk."
+  ],
+  de: [
+    "Hallo! Willkommen im Kulaq Studio. [laughs] Mit diesem System können Sie professionelle Voiceovers erstellen.",
+    "Achtung bitte! Die Boarding-Gates für Ihren Flug werden gleich geschlossen. [clears throat] Bitte halten Sie sich bereit.",
+    "Das Wetter ist heute herrliches, nicht wahr? ... [sighs] Vielleicht sollten wir einen Spaziergang machen."
+  ]
+};
+
 const VOCAL_FX = [
   { tag: '[laughs]', label: { tr: 'Gülme', en: 'Laugh', de: 'Lachen' } },
   { tag: '[sighs]', label: { tr: 'İç Çekme', en: 'Sigh', de: 'Seufzen' } },
   { tag: '[clears throat]', label: { tr: 'Öksürük', en: 'Clear', de: 'Hüsteln' } },
   { tag: '[whispers]', label: { tr: 'Fısıltı', en: 'Whisper', de: 'Flüstern' } },
-  { tag: '[hesitates]', label: { tr: 'Duraksama', en: 'Pause', de: 'Zögern' } },
 ];
 
 const translations = {
@@ -38,11 +55,12 @@ const translations = {
     download: 'WAV İNDİR',
     single: 'TEK KİŞİ',
     multi: 'DİYALOG',
-    placeholder: 'Metni buraya girin...',
+    placeholder: 'Metni buraya girin veya örneklerden birini seçin...',
     tipsTitle: 'Stüdyo Rehberi',
     tipsDesc: 'Doğallık katmak için bu efektleri metne ekleyin:',
     uppercaseTip: 'Vurgu için KELİMEYİ BÜYÜK YAZIN.',
     pauseTip: 'Daha uzun duraksamalar için "..." kullanın.',
+    examples: 'ÖRNEKLER',
     close: 'Kapat'
   },
   en: {
@@ -57,11 +75,12 @@ const translations = {
     download: 'EXPORT WAV',
     single: 'SOLO',
     multi: 'DIALOGUE',
-    placeholder: 'Enter text here...',
+    placeholder: 'Enter text here or choose an example...',
     tipsTitle: 'Studio Guide',
     tipsDesc: 'Add these tags for natural performance:',
     uppercaseTip: 'Write words in UPPERCASE for extra stress.',
     pauseTip: 'Use "..." for meaningful silences.',
+    examples: 'EXAMPLES',
     close: 'Close'
   },
   de: {
@@ -76,11 +95,12 @@ const translations = {
     download: 'EXPORT WAV',
     single: 'SOLO',
     multi: 'DIALOG',
-    placeholder: 'Text hier eingeben...',
+    placeholder: 'Text hier eingeben oder Beispiel wählen...',
     tipsTitle: 'Studio Guide',
     tipsDesc: 'Fügen Sie Tags für eine natürliche Performance hinzu:',
     uppercaseTip: 'Schreiben Sie Wörter GROSS für zusätzliche Betonung.',
     pauseTip: 'Verwenden Sie "..." für Pausen.',
+    examples: 'BEISPIELE',
     close: 'Schließen'
   }
 };
@@ -107,7 +127,7 @@ const App: React.FC = () => {
   ]);
   const [dialogue, setDialogue] = useState<DialogueItem[]>([
     { speakerId: 's1', text: "Kulaq Studio'ya hoş geldiniz." },
-    { speakerId: 's2', text: "[breathes in] Bu ses gerçekten çok güçlü!" }
+    { speakerId: 's2', text: "[breathes in] Bu ses gerçekten harika!" }
   ]);
 
   // Audio Control States
@@ -158,13 +178,25 @@ const App: React.FC = () => {
     }
   };
 
+  const stopAudio = useCallback(() => {
+    if (sourceRef.current) {
+      try { sourceRef.current.stop(); } catch (e) {}
+      sourceRef.current = null;
+    }
+    setIsPlaying(false);
+    setPausedAt(0);
+    setCurrentTime(0);
+  }, []);
+
   const pauseAudio = useCallback(() => {
     if (sourceRef.current) {
       try { sourceRef.current.stop(); } catch (e) {}
       sourceRef.current = null;
     }
-    const elapsedSinceStart = audioContextRef.current ? audioContextRef.current.currentTime - startTimeRef.current : 0;
-    setPausedAt(prev => prev + elapsedSinceStart);
+    if (audioContextRef.current) {
+      const elapsedSinceStart = audioContextRef.current.currentTime - startTimeRef.current;
+      setPausedAt(prev => prev + elapsedSinceStart);
+    }
     setIsPlaying(false);
   }, []);
 
@@ -184,11 +216,8 @@ const App: React.FC = () => {
     source.connect(analyserRef.current!);
     
     source.onended = () => {
-      if (sourceRef.current === source) {
-        setIsPlaying(false);
-        setPausedAt(0);
-        setCurrentTime(buffer.duration);
-      }
+      // Logic managed in updateProgress loop mostly, 
+      // but onended helps ensure cleanup if it finishes naturally
     };
     
     startTimeRef.current = audioContextRef.current.currentTime;
@@ -201,6 +230,36 @@ const App: React.FC = () => {
     setDuration(buffer.duration);
     setCurrentTime(offset);
     if (url) setActiveWavUrl(url);
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    setCurrentTime(newTime);
+    setPausedAt(newTime);
+    
+    if (activeBuffer) {
+      if (isPlaying) {
+        // Restart from new offset
+        playBuffer(activeBuffer, activeWavUrl || undefined, newTime);
+      } else {
+        // Just update internal markers
+        setPausedAt(newTime);
+      }
+    }
+  };
+
+  const skip = (seconds: number) => {
+    if (!activeBuffer) return;
+    let newTime = currentTime + seconds;
+    if (newTime < 0) newTime = 0;
+    if (newTime > duration) newTime = duration;
+    
+    setCurrentTime(newTime);
+    setPausedAt(newTime);
+    
+    if (isPlaying) {
+      playBuffer(activeBuffer, activeWavUrl || undefined, newTime);
+    }
   };
 
   const handleGenerate = async () => {
@@ -244,6 +303,18 @@ const App: React.FC = () => {
     }
   };
 
+  const loadExample = (ex: string) => {
+    if (mode === 'single') {
+      setText(ex);
+    } else {
+      const n = [...dialogue];
+      if (n.length > 0) {
+        n[0].text = ex;
+        setDialogue(n);
+      }
+    }
+  };
+
   const generateDownloadName = () => {
     const voicePart = mode === 'single' ? selectedVoice : 'multi';
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -253,7 +324,7 @@ const App: React.FC = () => {
   return (
     <div className={`flex flex-col h-screen overflow-hidden ${theme === 'dark' ? 'bg-[#020617] text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* Header - Navy Background */}
+      {/* Header */}
       <header className={`h-16 flex items-center justify-between px-8 border-b ${theme === 'dark' ? 'bg-[#0f172a] border-white/5' : 'bg-[#1e1b4b] border-indigo-900'} premium-blur z-50 shadow-md`}>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 group cursor-pointer">
@@ -281,12 +352,12 @@ const App: React.FC = () => {
           </button>
           
           <button onClick={() => setShowTips(true)} className={`text-[10px] font-bold tracking-widest transition-all border px-4 py-2 rounded-full flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400 border-white/5 hover:text-white' : 'text-indigo-200 border-white/10 hover:text-white'}`}>
-            <i className="fa-solid fa-lightbulb text-orange-400"></i> İPUÇLARI
+            <i className="fa-solid fa-lightbulb text-orange-400"></i> {lang === 'tr' ? 'REHBER' : 'GUIDE'}
           </button>
           
           <div className={`flex items-center gap-2 p-1 border rounded-full ${theme === 'dark' ? 'bg-white/[0.03] border-white/5' : 'bg-black/[0.1] border-white/10'}`}>
-            <button onClick={() => setLang('tr')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${lang === 'tr' ? 'bg-orange-500 text-white' : 'text-indigo-300'}`}>TR</button>
-            <button onClick={() => setLang('en')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${lang === 'en' ? 'bg-orange-500 text-white' : 'text-indigo-300'}`}>EN</button>
+            <button onClick={() => setLang('tr')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${lang === 'tr' ? 'bg-orange-500 text-white shadow-sm' : 'text-indigo-300'}`}>TR</button>
+            <button onClick={() => setLang('en')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${lang === 'en' ? 'bg-orange-500 text-white shadow-sm' : 'text-indigo-300'}`}>EN</button>
           </div>
         </div>
       </header>
@@ -300,7 +371,7 @@ const App: React.FC = () => {
             {history.length === 0 ? (
               <div className="h-32 flex flex-col items-center justify-center opacity-10">
                 <i className="fa-solid fa-folder-open mb-2 text-indigo-900"></i>
-                <span className="text-[9px] uppercase font-bold text-indigo-900">Boş</span>
+                <span className="text-[9px] uppercase font-bold text-indigo-900">{lang === 'tr' ? 'BOŞ' : 'EMPTY'}</span>
               </div>
             ) : (
               history.map(item => (
@@ -324,12 +395,25 @@ const App: React.FC = () => {
                 <button onClick={() => setMode('multi')} className={`px-6 py-2 rounded-lg text-[10px] font-bold transition-all ${mode === 'multi' ? (theme === 'dark' ? 'bg-white text-black' : 'bg-[#1e1b4b] text-white shadow-sm') : 'text-indigo-400'}`}>{t.multi}</button>
              </div>
 
-             <div className="flex items-center gap-2">
-               {VOCAL_FX.map(fx => (
-                 <button key={fx.tag} onClick={() => insertFx(fx.tag)} className={`px-3 py-1.5 border rounded-lg text-[9px] font-bold text-indigo-500 transition-all ${theme === 'dark' ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white border-indigo-100 hover:bg-indigo-50'}`}>
-                   {fx.label[lang]}
-                 </button>
-               ))}
+             <div className="flex items-center gap-4">
+               {/* Vocal FX Group */}
+               <div className="flex items-center gap-1.5">
+                 {VOCAL_FX.map(fx => (
+                   <button key={fx.tag} onClick={() => insertFx(fx.tag)} className={`px-3 py-1.5 border rounded-lg text-[9px] font-bold text-indigo-500 transition-all ${theme === 'dark' ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white border-indigo-100 hover:bg-indigo-50'}`}>
+                     {fx.label[lang]}
+                   </button>
+                 ))}
+               </div>
+               
+               <div className="h-6 w-[1px] bg-indigo-100 mx-2"></div>
+               <div className="flex items-center gap-1.5 overflow-x-auto max-w-[300px] no-scrollbar">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0">{t.examples}:</span>
+                  {EXAMPLE_TEXTS[ttsLang].map((ex, i) => (
+                    <button key={i} onClick={() => loadExample(ex)} className={`px-3 py-1.5 border rounded-lg text-[9px] font-bold shrink-0 transition-all ${theme === 'dark' ? 'bg-white/5 border-white/5 text-slate-400 hover:text-white' : 'bg-[#0ea5e9]/5 border-[#0ea5e9]/20 text-[#0ea5e9] hover:bg-[#0ea5e9]/10'}`}>
+                      #{i+1}
+                    </button>
+                  ))}
+               </div>
              </div>
           </div>
 
@@ -345,7 +429,7 @@ const App: React.FC = () => {
               ) : (
                 <div className="h-full overflow-y-auto space-y-8 pr-4 custom-scrollbar">
                   {dialogue.map((item, idx) => (
-                    <div key={idx} className="flex gap-10 group">
+                    <div key={idx} className="flex gap-10 group animate-in fade-in slide-in-from-bottom-2">
                       <div className="shrink-0 flex flex-col gap-3">
                         <div className={`px-4 py-2 border rounded-xl text-[10px] font-bold uppercase min-w-[100px] text-center ${theme === 'dark' ? 'bg-white/[0.03] border-white/[0.08] text-slate-400' : 'bg-indigo-50/50 border-indigo-100 text-indigo-600'}`}>
                           {speakers.find(s => s.id === item.speakerId)?.name || 'Anonim'}
@@ -366,27 +450,90 @@ const App: React.FC = () => {
               )}
             </div>
 
-            {/* Playback Controls */}
+            {/* Playback Controls & Timeline */}
             <div className="mt-10 shrink-0">
+               {/* Timeline Bar */}
+               <div className="mb-4 flex flex-col gap-2">
+                 <div className="flex justify-between px-1">
+                   <span className="text-[10px] font-mono text-slate-400 font-bold">{currentTime.toFixed(1)}s</span>
+                   <span className="text-[10px] font-mono text-slate-400 font-bold">{duration.toFixed(1)}s</span>
+                 </div>
+                 <div className="relative h-2 w-full group">
+                   <input 
+                    type="range"
+                    min="0"
+                    max={duration || 0}
+                    step="0.1"
+                    value={currentTime}
+                    onChange={handleSeek}
+                    className="absolute inset-0 w-full h-2 appearance-none bg-transparent cursor-pointer z-20 seek-slider"
+                   />
+                   <div className="absolute inset-0 h-2 bg-indigo-50 border border-indigo-100 rounded-full z-0 overflow-hidden">
+                     <div 
+                        className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-100 ease-linear" 
+                        style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                      ></div>
+                   </div>
+                 </div>
+               </div>
+
                <AudioVisualizer analyser={analyserRef.current} isPlaying={isPlaying} />
+               
                <div className="mt-8 flex items-center gap-10">
-                  <div className="flex items-center gap-6">
-                    <button onClick={togglePlayback} className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${!activeBuffer ? 'bg-slate-200 text-slate-400' : 'bg-[#1e1b4b] text-white shadow-xl hover:scale-105 active:scale-95'}`}>
-                      <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-xl`}></i>
-                    </button>
-                    <div className="flex flex-col gap-1">
-                      <span className={`font-mono text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>{currentTime.toFixed(1)}s</span>
-                      <span className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">/ {duration.toFixed(1)}s Toplam</span>
+                  <div className="flex items-center gap-4">
+                    {/* Media Controls */}
+                    <div className="flex items-center gap-2 p-1 bg-slate-100/50 rounded-2xl border border-slate-200/50">
+                      <button 
+                        onClick={() => skip(-5)}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300' : 'text-[#1e1b4b] hover:bg-white hover:shadow-sm'}`}
+                        title="-5s"
+                      >
+                        <i className="fa-solid fa-backward-step"></i>
+                      </button>
+                      
+                      <button 
+                        onClick={stopAudio}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300' : 'text-red-500 hover:bg-white hover:shadow-sm'}`}
+                        title="Stop"
+                      >
+                        <i className="fa-solid fa-stop"></i>
+                      </button>
+
+                      <button 
+                        onClick={togglePlayback} 
+                        className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'bg-slate-200 text-slate-400' : 'bg-[#1e1b4b] text-white shadow-lg hover:scale-105 active:scale-95'}`}
+                      >
+                        <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-lg`}></i>
+                      </button>
+
+                      <button 
+                        onClick={() => skip(5)}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300' : 'text-[#1e1b4b] hover:bg-white hover:shadow-sm'}`}
+                        title="+5s"
+                      >
+                        <i className="fa-solid fa-forward-step"></i>
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-0.5 ml-2">
+                      <span className={`font-mono text-sm font-bold tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>
+                        {Math.floor(currentTime / 60)}:{(currentTime % 60).toFixed(1).padStart(4, '0')}
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase">Zaman</span>
                     </div>
                   </div>
 
-                  <button onClick={handleGenerate} disabled={isGenerating} className={`flex-1 h-16 rounded-2xl font-bold text-xs tracking-[0.4em] uppercase text-white transition-all btn-orange`}>
+                  <button 
+                    onClick={handleGenerate} 
+                    disabled={isGenerating} 
+                    className={`flex-1 h-14 rounded-2xl font-bold text-xs tracking-[0.4em] uppercase text-white transition-all btn-orange active:scale-[0.98]`}
+                  >
                     {isGenerating ? <i className="fa-solid fa-circle-notch fa-spin mr-3"></i> : <i className="fa-solid fa-bolt mr-3"></i>}
                     {isGenerating ? 'Hazırlanıyor...' : t.generate}
                   </button>
 
                   {activeWavUrl && (
-                    <a href={activeWavUrl} download={generateDownloadName()} className={`h-16 px-10 border rounded-2xl flex items-center gap-3 transition-all ${theme === 'dark' ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400' : 'border-emerald-500/20 bg-emerald-50 text-emerald-600'}`}>
+                    <a href={activeWavUrl} download={generateDownloadName()} className={`h-14 px-8 border rounded-2xl flex items-center gap-3 transition-all ${theme === 'dark' ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400' : 'border-emerald-500/20 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
                        <i className="fa-solid fa-cloud-arrow-down"></i>
                        <span className="text-[10px] font-bold uppercase tracking-widest">{t.download}</span>
                     </a>
@@ -402,12 +549,12 @@ const App: React.FC = () => {
            
            <div className="flex-1 overflow-y-auto space-y-12 pr-1 no-scrollbar pb-10">
               
-              {/* Language Selection - Sky Blue Style */}
+              {/* Language Selection */}
               <div className="space-y-4">
                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t.ttsLang}</label>
                  <div className="grid grid-cols-1 gap-3">
                     {SPEECH_LANGS.map(l => (
-                      <button key={l.id} onClick={() => setTtsLang(l.id)} className={`px-5 py-4 rounded-2xl border transition-all flex items-center gap-4 ${ttsLang === l.id ? 'bg-[#0ea5e9]/10 border-[#0ea5e9] text-[#0ea5e9]' : 'bg-white border-slate-100 text-slate-400 hover:border-indigo-100'}`}>
+                      <button key={l.id} onClick={() => setTtsLang(l.id)} className={`px-5 py-4 rounded-2xl border transition-all flex items-center gap-4 ${ttsLang === l.id ? 'bg-[#0ea5e9]/10 border-[#0ea5e9] text-[#0ea5e9] shadow-sm' : 'bg-white border-slate-100 text-slate-400 hover:border-indigo-100'}`}>
                          <span className="text-xl">{l.flag}</span>
                          <span className="text-[11px] font-bold uppercase tracking-widest">{l.label}</span>
                          {ttsLang === l.id && <i className="fa-solid fa-check ml-auto text-xs"></i>}
@@ -435,7 +582,7 @@ const App: React.FC = () => {
                  <div className="space-y-3">
                    {mode === 'single' ? (
                      Object.values(VoiceName).map(v => (
-                       <button key={v} onClick={() => setSelectedVoice(v)} className={`w-full p-4 rounded-2xl border transition-all flex items-center gap-4 card-shadow ${selectedVoice === v ? 'bg-indigo-50 border-indigo-200 text-indigo-900' : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-100'}`}>
+                       <button key={v} onClick={() => setSelectedVoice(v)} className={`w-full p-4 rounded-2xl border transition-all flex items-center gap-4 card-shadow ${selectedVoice === v ? 'bg-indigo-50 border-indigo-200 text-indigo-900 ring-1 ring-indigo-200' : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-100'}`}>
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${VoiceDescriptions[v].gender === 'male' ? 'bg-blue-500/10 text-blue-600' : 'bg-pink-500/10 text-pink-600'}`}>
                              <i className={`fa-solid ${VoiceDescriptions[v].gender === 'male' ? 'fa-mars' : 'fa-venus'} text-[10px]`}></i>
                           </div>
@@ -454,7 +601,7 @@ const App: React.FC = () => {
                               <button onClick={() => setSpeakers(speakers.filter(sp => sp.id !== s.id))} className="text-red-300 hover:text-red-500 transition-all"><i className="fa-solid fa-circle-xmark"></i></button>
                             )}
                           </div>
-                          <select value={s.voice} onChange={e => {const n=[...speakers]; n[idx].voice=e.target.value as VoiceName; setSpeakers(n);}} className="w-full border border-slate-100 bg-slate-50 rounded-xl px-3 py-2 text-[10px] font-bold outline-none uppercase text-indigo-600">
+                          <select value={s.voice} onChange={e => {const n=[...speakers]; n[idx].voice=e.target.value as VoiceName; setSpeakers(n);}} className="w-full border border-slate-100 bg-slate-50 rounded-xl px-3 py-2 text-[10px] font-bold outline-none uppercase text-indigo-600 cursor-pointer">
                              {Object.values(VoiceName).map(v => <option key={v} value={v}>{v} ({VoiceDescriptions[v].gender === 'male' ? 'M' : 'F'})</option>)}
                           </select>
                        </div>
@@ -486,12 +633,43 @@ const App: React.FC = () => {
                 </div>
               ))}
             </div>
-            <button onClick={() => setShowTips(false)} className={`w-full py-4 font-bold text-xs uppercase tracking-widest rounded-2xl transition-all ${theme === 'dark' ? 'bg-white text-black' : 'btn-navy shadow-lg'}`}>
+            <div className="space-y-3 mb-8">
+               <div className="flex gap-4 items-center p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-xs font-bold text-[#1e1b4b] w-8">ABC</span>
+                  <p className="text-[11px] text-slate-500 font-medium">{t.uppercaseTip}</p>
+               </div>
+               <div className="flex gap-4 items-center p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-xs font-bold text-[#1e1b4b] w-8">...</span>
+                  <p className="text-[11px] text-slate-500 font-medium">{t.pauseTip}</p>
+               </div>
+            </div>
+            <button onClick={() => setShowTips(false)} className={`w-full py-4 font-bold text-xs uppercase tracking-widest rounded-2xl transition-all shadow-md ${theme === 'dark' ? 'bg-white text-black' : 'bg-[#1e1b4b] text-white hover:bg-indigo-900'}`}>
               {t.close}
             </button>
           </div>
         </div>
       )}
+
+      <style>{`
+        .seek-slider::-webkit-slider-thumb {
+          appearance: none;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #f97316;
+          cursor: pointer;
+          border: 2px solid white;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .seek-slider::-moz-range-thumb {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #f97316;
+          cursor: pointer;
+          border: 2px solid white;
+        }
+      `}</style>
 
     </div>
   );

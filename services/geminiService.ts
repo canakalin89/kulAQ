@@ -43,9 +43,9 @@ const speedInstructions: Record<SpeechSpeed, string> = {
 const NON_VERBAL_CUE_INSTRUCTION = `
 STRICT PERFORMANCE RULE: 
 - Words inside square brackets are VOCAL ACTIONS: [laughs], [sighs], [clears throat], [coughs], [breathes in], [breathes out], [hesitates], [whispers], [shouts], [chuckles], [sniffles], [yawn], [sobbing], [giggles].
-- DO NOT SAY THE WORDS INSIDE THE BRACKETS. 
-- PERFORM THE SOUND EFFECT NATURALLY.
-- If the script contains brackets like "[laughs]", the AI must laugh, not speak the word "laughs".
+- CRITICAL: DO NOT SAY THE WORDS INSIDE THE BRACKETS. DO NOT READ THE BRACKETED TEXT OUT LOUD.
+- INSTEAD, PERFORM THE SOUND EFFECT NATURALLY.
+- If you see "[laughs]", you must laugh, but NEVER say the word "laughs".
 - UPPERCASE words must be spoken with HIGHER VOLUME and STRONGER STRESS.
 `;
 
@@ -61,14 +61,13 @@ const getVoiceStyleInstruction = (voice: VoiceName, ttsLang: AppLang) => {
   if (ttsLang === 'tr') {
     instruction += "Apply native Turkish phonetics for characters like 'ğ, ş, ç, ö, ü, ı'. Use standard Istanbul Turkish intonation. ";
   } else if (ttsLang === 'de') {
-    instruction += "Apply native German phonetics. Pay special attention to 'Umlaute' (ä, ö, ü) and 'ß'. Use natural German sentence melody (Satzmelodie). ";
+    instruction += "Apply native German phonetics. Pay special attention to 'Umlaute' (ä, ö, ü) and 'ß'. Use natural German sentence melody. ";
   }
 
-  // MASCULINITY REINFORCEMENT
   if (voice === VoiceName.Fenrir) {
-    instruction += "CRITICAL: Use an ULTRA-MASCULINE, deep, heavy chest-voice. Bass-baritone resonance. No soft feminine textures. ";
+    instruction += "CRITICAL: Use an ULTRA-MASCULINE, deep, heavy chest-voice. Bass-baritone resonance. ";
   } else if (voice === VoiceName.Puck) {
-    instruction += "CRITICAL: Use a young male voice. Adolescent male resonance. Strictly masculine, not feminine. ";
+    instruction += "CRITICAL: Use a young male voice. Adolescent male resonance. Strictly masculine. ";
   } else if (voice === VoiceName.Charon) {
     instruction += "CRITICAL: Extremely old, raspy, gravelly male voice. Deep weathered throat. ";
   } else if (desc.gender === 'male') {
@@ -89,7 +88,7 @@ export async function generateSingleSpeakerAudio(
     ${NON_VERBAL_CUE_INSTRUCTION}
     ${getVoiceStyleInstruction(voice, ttsLang)}
     ${speedInstructions[speed]} 
-    Script to be spoken in ${ttsLang.toUpperCase()}:
+    Script to be spoken in ${ttsLang.toUpperCase()} (DO NOT READ BRACKETED ACTIONS):
     ${text}
   `;
 
@@ -134,7 +133,7 @@ export async function generateMultiSpeakerAudio(
 
   const prompt = `
     ${NON_VERBAL_CUE_INSTRUCTION}
-    SPEAK IN ${ttsLang.toUpperCase()} AS NATIVE SPEAKERS.
+    SPEAK IN ${ttsLang.toUpperCase()} AS NATIVE SPEAKERS. DO NOT READ BRACKETED TEXT.
     ${voiceInstructions}
     ${speedInstructions[speed]} 
     Dialogue Script:
