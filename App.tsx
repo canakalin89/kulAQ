@@ -422,7 +422,7 @@ const App: React.FC = () => {
     <div className={`flex flex-col h-screen overflow-hidden ${theme === 'dark' ? 'bg-[#020617] text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* Header */}
-      <header className={`h-16 flex items-center justify-between px-4 lg:px-8 border-b ${theme === 'dark' ? 'bg-[#0f172a] border-white/5' : 'bg-[#1e1b4b] border-indigo-900'} premium-blur z-[60] shadow-md`}>
+      <header className={`h-14 lg:h-16 flex items-center justify-between px-4 lg:px-8 border-b ${theme === 'dark' ? 'bg-[#0f172a] border-white/5' : 'bg-[#1e1b4b] border-indigo-900'} premium-blur z-[60] shadow-md shrink-0`}>
         <div className="flex items-center gap-3 lg:gap-6">
           <button onClick={toggleLibrary} className="lg:hidden w-10 h-10 flex items-center justify-center text-white/80"><i className="fa-solid fa-folder-tree"></i></button>
           <div className="flex items-center gap-2 group cursor-pointer">
@@ -436,7 +436,7 @@ const App: React.FC = () => {
                </svg>
             </div>
             <div className="flex flex-col">
-              <h1 className="text-lg lg:text-xl font-extrabold tracking-tighter font-display leading-none text-white">
+              <h1 className="text-base lg:text-xl font-extrabold tracking-tighter font-display leading-none text-white">
                 {t.studio}<span className="text-orange-500">.</span>
               </h1>
               <span className="hidden lg:block text-[8px] font-mono tracking-[0.3em] uppercase mt-0.5 leading-none text-indigo-300">{t.tagline}</span>
@@ -449,7 +449,7 @@ const App: React.FC = () => {
             <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} text-xs lg:text-base`}></i>
           </button>
           
-          <button onClick={() => setShowTips(true)} className={`text-[10px] font-bold tracking-widest transition-all border px-3 lg:px-4 py-1.5 lg:py-2 rounded-full flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400 border-white/5 hover:text-white' : 'text-indigo-200 border-white/10 hover:text-white'}`}>
+          <button onClick={() => setShowTips(true)} className={`text-[9px] lg:text-[10px] font-bold tracking-widest transition-all border px-2.5 lg:px-4 py-1.5 lg:py-2 rounded-full flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400 border-white/5 hover:text-white' : 'text-indigo-200 border-white/10 hover:text-white'}`}>
             <i className="fa-solid fa-lightbulb text-orange-400"></i> <span className="hidden sm:inline">{lang === 'tr' ? 'REHBER' : 'GUIDE'}</span>
           </button>
           
@@ -471,8 +471,8 @@ const App: React.FC = () => {
 
         {/* Center Stage */}
         <section className="flex-1 flex flex-col overflow-hidden canvas-bg w-full">
-          {/* Editor Header - Responsive Horizonal Scroll for tools */}
-          <div className="flex items-center justify-between px-4 lg:px-10 py-4 lg:py-6 shrink-0 overflow-x-auto no-scrollbar gap-4">
+          {/* Editor Header */}
+          <div className="flex items-center justify-between px-4 lg:px-10 py-3 lg:py-6 shrink-0 overflow-x-auto no-scrollbar gap-4">
              <div className={`flex p-1 rounded-xl border shrink-0 ${theme === 'dark' ? 'bg-white/[0.04] border-white/5' : 'bg-indigo-50/50 border-indigo-100'}`}>
                 <button onClick={() => setMode('single')} className={`px-4 lg:px-6 py-2 rounded-lg text-[10px] font-bold transition-all ${mode === 'single' ? (theme === 'dark' ? 'bg-white text-black' : 'bg-[#1e1b4b] text-white shadow-sm') : 'text-indigo-400'}`}>{t.single}</button>
                 <button onClick={() => setMode('multi')} className={`px-4 lg:px-6 py-2 rounded-lg text-[10px] font-bold transition-all ${mode === 'multi' ? (theme === 'dark' ? 'bg-white text-black' : 'bg-[#1e1b4b] text-white shadow-sm') : 'text-indigo-400'}`}>{t.multi}</button>
@@ -499,21 +499,23 @@ const App: React.FC = () => {
              </div>
           </div>
 
-          <div className="flex-1 px-4 lg:px-10 pb-4 lg:pb-10 overflow-hidden flex flex-col">
-            <div className={`flex-1 border rounded-[1.5rem] lg:rounded-[2.5rem] p-6 lg:p-12 overflow-hidden flex flex-col card-shadow relative ${theme === 'dark' ? 'bg-white/[0.02] border-white/[0.05]' : 'bg-white border-indigo-50'}`}>
+          {/* Main Area: Flex container to manage Editor vs Controls */}
+          <div className="flex-1 px-4 lg:px-10 pb-3 lg:pb-8 overflow-hidden flex flex-col min-h-0">
+            {/* Editor Box */}
+            <div className={`flex-1 border rounded-[1.5rem] lg:rounded-[2.5rem] p-4 lg:p-12 overflow-hidden flex flex-col card-shadow relative min-h-0 ${theme === 'dark' ? 'bg-white/[0.02] border-white/[0.05]' : 'bg-white border-indigo-50'}`}>
               {mode === 'single' ? (
                 <textarea 
                   value={text} 
                   onChange={e => setText(e.target.value)} 
                   placeholder={t.placeholder}
-                  className={`w-full h-full bg-transparent border-none outline-none focus:ring-0 text-xl lg:text-3xl font-light leading-relaxed custom-scrollbar resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
+                  className={`w-full h-full bg-transparent border-none outline-none focus:ring-0 text-base lg:text-3xl font-light leading-relaxed custom-scrollbar resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
                 />
               ) : (
                 <div className="h-full overflow-y-auto space-y-6 lg:space-y-8 pr-2 custom-scrollbar">
                   {dialogue.map((item, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row gap-4 sm:gap-10 group animate-in fade-in slide-in-from-bottom-2">
+                    <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:gap-10 group animate-in fade-in slide-in-from-bottom-2">
                       <div className="shrink-0 flex flex-row sm:flex-col gap-3 items-center sm:items-stretch">
-                        <div className={`px-3 lg:px-4 py-1.5 lg:py-2 border rounded-xl text-[9px] lg:text-[10px] font-bold uppercase min-w-[80px] lg:min-w-[100px] text-center ${theme === 'dark' ? 'bg-white/[0.03] border-white/[0.08] text-slate-400' : 'bg-indigo-50/50 border-indigo-100 text-indigo-600'}`}>
+                        <div className={`px-3 lg:px-4 py-1.5 lg:py-2 border rounded-xl text-[9px] lg:text-[10px] font-bold uppercase min-w-[70px] lg:min-w-[100px] text-center ${theme === 'dark' ? 'bg-white/[0.03] border-white/[0.08] text-slate-400' : 'bg-indigo-50/50 border-indigo-100 text-indigo-600'}`}>
                           {speakers.find(s => s.id === item.speakerId)?.name || 'Anonim'}
                         </div>
                         <button onClick={() => setDialogue(dialogue.filter((_, i) => i !== idx))} className="sm:opacity-0 group-hover:opacity-100 transition-all text-slate-400 hover:text-red-500 text-xs text-center"><i className="fa-solid fa-trash"></i></button>
@@ -521,7 +523,7 @@ const App: React.FC = () => {
                       <textarea 
                         value={item.text} 
                         onChange={e => { const n = [...dialogue]; n[idx].text = e.target.value; setDialogue(n); }}
-                        className={`flex-1 bg-transparent border-none outline-none focus:ring-0 text-base lg:text-xl font-light pt-1 resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
+                        className={`flex-1 bg-transparent border-none outline-none focus:ring-0 text-sm lg:text-xl font-light pt-1 resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
                         rows={1}
                         onInput={(e: any) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                       />
@@ -532,14 +534,14 @@ const App: React.FC = () => {
               )}
             </div>
 
-            {/* Playback Controls & Timeline Area */}
-            <div className="mt-4 lg:mt-10 shrink-0">
-               <div className="mb-3 lg:mb-4 flex flex-col gap-1.5">
+            {/* Playback Controls & Timeline Area - Fixed size to prevent push-out */}
+            <div className="mt-3 lg:mt-6 shrink-0 space-y-3 lg:space-y-6">
+               <div className="flex flex-col gap-1.5">
                  <div className="flex justify-between px-1">
-                   <span className="text-[9px] font-mono text-slate-400 font-bold">{currentTime.toFixed(1)}s</span>
-                   <span className="text-[9px] font-mono text-slate-400 font-bold">{duration.toFixed(1)}s</span>
+                   <span className="text-[8px] lg:text-[9px] font-mono text-slate-400 font-bold">{currentTime.toFixed(1)}s</span>
+                   <span className="text-[8px] lg:text-[9px] font-mono text-slate-400 font-bold">{duration.toFixed(1)}s</span>
                  </div>
-                 <div className="relative h-1.5 lg:h-2 w-full group">
+                 <div className="relative h-1 w-full group">
                    <input 
                     type="range"
                     min="0"
@@ -547,9 +549,9 @@ const App: React.FC = () => {
                     step="0.1"
                     value={currentTime}
                     onChange={handleSeek}
-                    className="absolute inset-0 w-full h-1.5 lg:h-2 appearance-none bg-transparent cursor-pointer z-20 seek-slider"
+                    className="absolute inset-0 w-full h-1 appearance-none bg-transparent cursor-pointer z-20 seek-slider"
                    />
-                   <div className="absolute inset-0 h-1.5 lg:h-2 bg-indigo-50 border border-indigo-100 rounded-full z-0 overflow-hidden">
+                   <div className="absolute inset-0 h-1 bg-indigo-50 border border-indigo-100 rounded-full z-0 overflow-hidden">
                      <div 
                         className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-100 ease-linear" 
                         style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
@@ -560,32 +562,32 @@ const App: React.FC = () => {
 
                <AudioVisualizer analyser={analyserRef.current} isPlaying={isPlaying} />
                
-               <div className="mt-4 lg:mt-8 flex flex-col lg:flex-row items-center gap-4 lg:gap-10">
-                  <div className="flex items-center gap-3 lg:gap-4 w-full lg:w-auto justify-between lg:justify-start">
-                    <div className="flex items-center gap-1.5 lg:gap-2 p-1 bg-slate-100/50 rounded-2xl border border-slate-200/50">
-                      <button onClick={() => skip(-5)} className={`w-9 h-9 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300' : 'text-[#1e1b4b] hover:bg-white hover:shadow-sm'}`} title="-5s"><i className="fa-solid fa-backward-step text-xs lg:text-base"></i></button>
-                      <button onClick={stopAudio} className={`w-9 h-9 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300' : 'text-red-500 hover:bg-white hover:shadow-sm'}`} title="Stop"><i className="fa-solid fa-stop text-xs lg:text-base"></i></button>
-                      <button onClick={togglePlayback} className={`w-11 h-11 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'bg-slate-200 text-slate-400' : 'bg-[#1e1b4b] text-white shadow-lg hover:scale-105 active:scale-95'}`}><i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-base lg:text-lg`}></i></button>
-                      <button onClick={() => skip(5)} className={`w-9 h-9 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300' : 'text-[#1e1b4b] hover:bg-white hover:shadow-sm'}`} title="+5s"><i className="fa-solid fa-forward-step text-xs lg:text-base"></i></button>
+               <div className="flex flex-col sm:flex-row items-center gap-3 lg:gap-10">
+                  <div className="flex items-center gap-3 lg:gap-4 w-full sm:w-auto justify-between sm:justify-start">
+                    <div className="flex items-center gap-1 lg:gap-2 p-1 bg-slate-100/50 rounded-2xl border border-slate-200/50">
+                      <button onClick={() => skip(-5)} className={`w-8 h-8 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300' : 'text-[#1e1b4b] hover:bg-white hover:shadow-sm'}`} title="-5s"><i className="fa-solid fa-backward-step text-[10px] lg:text-base"></i></button>
+                      <button onClick={stopAudio} className={`w-8 h-8 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300' : 'text-red-500 hover:bg-white hover:shadow-sm'}`} title="Stop"><i className="fa-solid fa-stop text-[10px] lg:text-base"></i></button>
+                      <button onClick={togglePlayback} className={`w-10 h-10 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'bg-slate-200 text-slate-400' : 'bg-[#1e1b4b] text-white shadow-lg hover:scale-105 active:scale-95'}`}><i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-sm lg:text-lg`}></i></button>
+                      <button onClick={() => skip(5)} className={`w-8 h-8 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center transition-all ${!activeBuffer ? 'text-slate-300' : 'text-[#1e1b4b] hover:bg-white hover:shadow-sm'}`} title="+5s"><i className="fa-solid fa-forward-step text-[10px] lg:text-base"></i></button>
                     </div>
 
                     <div className="flex flex-col gap-0 ml-1">
-                      <span className={`font-mono text-xs lg:text-sm font-bold tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>
+                      <span className={`font-mono text-[10px] lg:text-sm font-bold tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>
                         {Math.floor(currentTime / 60)}:{(currentTime % 60).toFixed(1).padStart(4, '0')}
                       </span>
-                      <span className="text-[8px] lg:text-[9px] text-slate-400 font-bold uppercase">Zaman</span>
+                      <span className="text-[7px] lg:text-[9px] text-slate-400 font-bold uppercase">Zaman</span>
                     </div>
                   </div>
 
-                  <div className="flex gap-2 w-full lg:flex-1">
-                    <button onClick={handleGenerate} disabled={isGenerating} className={`flex-1 h-12 lg:h-14 rounded-xl lg:rounded-2xl font-bold text-[10px] lg:text-xs tracking-[0.2em] lg:tracking-[0.4em] uppercase text-white transition-all btn-orange active:scale-[0.98]`}>
-                      {isGenerating ? <i className="fa-solid fa-circle-notch fa-spin mr-3"></i> : <i className="fa-solid fa-bolt mr-3"></i>}
+                  <div className="flex gap-2 w-full sm:flex-1">
+                    <button onClick={handleGenerate} disabled={isGenerating} className={`flex-1 h-11 lg:h-14 rounded-xl lg:rounded-2xl font-bold text-[9px] lg:text-xs tracking-[0.2em] lg:tracking-[0.4em] uppercase text-white transition-all btn-orange active:scale-[0.98]`}>
+                      {isGenerating ? <i className="fa-solid fa-circle-notch fa-spin mr-2 lg:mr-3"></i> : <i className="fa-solid fa-bolt mr-2 lg:mr-3"></i>}
                       {isGenerating ? '...' : t.generate}
                     </button>
 
                     {activeWavUrl && (
-                      <a href={activeWavUrl} download={generateDownloadName()} className={`h-12 lg:h-14 px-4 lg:px-8 border rounded-xl lg:rounded-2xl flex items-center justify-center lg:justify-start gap-3 transition-all ${theme === 'dark' ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400' : 'border-emerald-500/20 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
-                         <i className="fa-solid fa-cloud-arrow-down"></i>
+                      <a href={activeWavUrl} download={generateDownloadName()} className={`h-11 lg:h-14 px-3 lg:px-8 border rounded-xl lg:rounded-2xl flex items-center justify-center lg:justify-start gap-2 lg:gap-3 transition-all ${theme === 'dark' ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400' : 'border-emerald-500/20 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
+                         <i className="fa-solid fa-cloud-arrow-down text-xs lg:text-base"></i>
                          <span className="hidden sm:inline text-[9px] lg:text-[10px] font-bold uppercase tracking-widest">{t.download}</span>
                       </a>
                     )}
@@ -596,7 +598,7 @@ const App: React.FC = () => {
         </section>
 
         {/* Right Sidebar (Desktop Sidebar / Mobile Drawer) */}
-        <aside className={`fixed inset-y-0 right-0 w-80 lg:relative transform transition-transform duration-300 ease-in-out border-l p-8 flex flex-col z-50 ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'} lg:translate-x-0 ${theme === 'dark' ? 'bg-[#0f172a] border-white/[0.04]' : 'bg-white lg:bg-transparent border-indigo-100'}`}>
+        <aside className={`fixed inset-y-0 right-0 w-80 lg:relative lg:w-80 lg:translate-x-0 transform transition-transform duration-300 ease-in-out border-l p-8 flex flex-col z-50 ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'} ${theme === 'dark' ? 'bg-[#0f172a] border-white/[0.04]' : 'bg-white lg:bg-transparent border-indigo-100'}`}>
            {settingsPanel}
         </aside>
 
@@ -642,8 +644,8 @@ const App: React.FC = () => {
       <style>{`
         .seek-slider::-webkit-slider-thumb {
           appearance: none;
-          width: 14px;
-          height: 14px;
+          width: 12px;
+          height: 12px;
           border-radius: 50%;
           background: #f97316;
           cursor: pointer;
@@ -651,8 +653,8 @@ const App: React.FC = () => {
           box-shadow: 0 1px 4px rgba(0,0,0,0.2);
         }
         .seek-slider::-moz-range-thumb {
-          width: 14px;
-          height: 14px;
+          width: 12px;
+          height: 12px;
           border-radius: 50%;
           background: #f97316;
           cursor: pointer;
@@ -663,6 +665,9 @@ const App: React.FC = () => {
             background-image: none;
             background-color: var(--bg);
           }
+        }
+        @media (max-height: 600px) {
+           .header-studio { display: none; }
         }
       `}</style>
 

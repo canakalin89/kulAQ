@@ -1,80 +1,69 @@
 
-# 🎧 Kulaq - Yapay Zeka Destekli ELT Ses Stüdyosu
+# 🎧 Kulaq Studio - Profesyonel Yapay Zeka Ses Laboratuvarı
 
-**Kulaq**, özellikle İngilizce öğretmenleri ve materyal geliştiriciler için tasarlanmış, ElevenLabs kalitesinde ses üretimi sunan profesyonel bir **Text-to-Speech (TTS)** platformudur. Google'ın yeni nesil **Gemini 2.5 Flash Native Audio** teknolojisini kullanarak, doğal ve akıcı dinleme sınavı materyalleri oluşturmanıza olanak tanır.
+**Kulaq Studio**, ElevenLabs kalitesinde ses üretimi sunan, Google'ın yeni nesil **Gemini 2.5 Flash Native Audio** teknolojisiyle güçlendirilmiş, yüksek sadakatli bir **Text-to-Speech (TTS)** platformudur. Özellikle içerik üreticileri, öğretmenler ve seslendirme sanatçıları için tasarlanmıştır.
 
 ---
 
 ## 🚀 Öne Çıkan Özellikler
 
-### 1. Diyalog Stüdyosu (Multi-Speaker)
-*   Aynı anda **6 farklı karaktere** kadar diyalog oluşturma.
-*   Karakter isimlerini özelleştirebilme (Örn: Teacher, Student, Narrator).
-*   Her satır için farklı bir ses atayabilme.
+### 1. Dengeli Kast Ekibi (5 Kadın, 5 Erkek Ses)
+Uygulama, mükemmel bir dengeyle 10 profesyonel AI ses sunar. Liste, seçim kolaylığı için bir kadın bir erkek olacak şekilde sıralanmıştır:
+*   **Kadın Sesleri:** Zephyr (Net), Kore (Nazik), Aoede (Sanatsal), Leda (Enerjik), Leto (Otoriter).
+*   **Erkek Sesleri:** Puck (Genç), Fenrir (Güçlü), Charon (Derin/Yaşlı), Hektor (Olgun), Mimas (Kurumsal).
 
-### 2. CEFR Uyumlu Hız Kontrolü
-*   **V. Slow (A1 Beginner):** Kelimeler arası belirgin duraklamalarla dikte seviyesi.
-*   **Slow (A2 Elementary):** Net ve anlaşılır, yavaş tempoda konuşma.
-*   **Normal (B1-B2 Intermediate):** Doğal günlük konuşma hızı.
-*   **Native (C1-C2 Advanced):** Akıcı ve hızlı ana dil seviyesi.
+### 2. Çok Sesli Diyalog Modu
+*   **Multi-Speaker:** Aynı ses dosyası içinde birden fazla karakteri konuşturun.
+*   **Senaryo Yönetimi:** Karakterler arası geçişler yaparak doğal diyaloglar ve podcast taslakları oluşturun.
 
-### 3. Profesyonel Ses Kütüphanesi
-*   **Kore & Zephyr:** Kadın sesleri (Nazik ve Berrak).
-*   **Puck, Charon & Fenrir:** Erkek sesleri (Genç, Derin ve Anlatıcı).
-*   Cinsiyet ikonları ile kolay seçim.
+### 3. Vokal Efektler ve Duygusal Tepkiler
+Model, metin içindeki gizli performans komutlarını anlar:
+*   `[laughs]` -> Karakterin doğal bir şekilde gülmesini sağlar.
+*   `[sighs]` -> Derin bir iç çekme efekti ekler.
+*   `[clears throat]` -> Boğaz temizleme sesi ekler.
+*   `[whispers]` -> Fısıltı tonuna geçer.
 
-### 4. Gelişmiş Oynatıcı ve Timeline
-*   **İnteraktif Zaman Çizelgesi:** Sesin istediğiniz noktasına tıklayarak atlayabilme.
-*   **Dinamik Görselleştirici:** D3.js ile güçlendirilmiş gerçek zamanlı frekans analizi.
-*   **Süre Takibi:** Milisaniyelik hassasiyetle mevcut süre ve toplam süre gösterimi.
+### 4. CEFR Uyumlu Hız Kontrolü
+Dil eğitimi materyalleri için optimize edilmiş 4 farklı hız seviyesi:
+*   **A1 (V. Slow):** Dikte ve başlangıç seviyesi için tane tane konuşma.
+*   **A2 (Slow):** Temkinli ve net anlatım.
+*   **B1 (Normal):** Standart günlük konuşma hızı.
+*   **C1 (Fast):** Akıcı ve hızlı ana dil performansı.
 
-### 5. Akıllı Arşiv Sistemi
-*   Üretilen tüm sesler "Arşivim" bölümünde saklanır.
-*   Kayıtları tek tek silebilir veya tüm arşivi tek tıkla temizleyebilirsiniz.
-*   Oluşturulan sesleri `.wav` formatında yüksek kalitede indirebilirsiniz.
+### 5. Premium UI/UX Tasarımı
+*   **Navy & Orange Teması:** Profesyonel stüdyo estetiği.
+*   **Responsive Tasarım:** Mobilde drawer (çekmece) sistemiyle çalışan kütüphane ve ayarlar menüsü.
+*   **Dinamik Görselleştirici:** D3.js ile gerçek zamanlı frekans analizi.
+*   **Karanlık/Aydınlık Mod:** Göz yorgunluğunu önleyen esnek arayüz.
 
 ---
 
-## 🎨 Seslendirme Nüansları (Pro-Tips)
+## 🎨 Seslendirme İpuçları (Pro-Tips)
 
-Kulaq, metin içindeki gizli komutları anlayabilen gelişmiş bir model kullanır. İşte sese duygu katma yolları:
+Sesi daha gerçekçi kılmak için şu teknikleri kullanabilirsiniz:
 
-*   **Duygusal Efektler:** Metin içine şu ifadeleri ekleyin:
-    *   `[laughs]` -> Karakterin gülmesini sağlar.
-    *   `[sighs]` -> Karakterin derin bir iç çekmesini sağlar.
-    *   `[coughs]` -> Karakterin öksürmesini sağlar.
-    *   `[clears throat]` -> Karakterin boğazını temizlemesini sağlar.
-*   **Vurgu:** Önemli bir kelimeyi **TAMAMEN BÜYÜK HARFLE** yazarak AI'nın o kelimeye vurgu yapmasını sağlayın.
-*   **Doğal Duraksamalar:**
-    *   `,`: Kısa bir nefes payı.
-    *   `.`: Standart cümle sonu es.
-    *   `...`: Düşünceli veya uzun süreli sessizlik.
-*   **Doğallık Katmanları:** Cümle başlarına "Um...", "Well," veya "Uh-oh," gibi ifadeler ekleyerek sınav materyalini gerçekçi kılın.
+*   **Vurgu:** Önemli kelimeleri **TAMAMEN BÜYÜK HARFLE** yazarak AI'nın o kelimeye baskı yapmasını sağlayın.
+*   **Duraksama:** Daha uzun ve anlamlı sessizlikler için `...` (üç nokta) kullanın.
+*   **Noktalama:** Virgül (`,`) kısa bir nefes payı bırakırken, nokta (`.`) cümleyi kesin bir tonla bitirir.
+*   **Doğallık:** Cümle aralarına "Um...", "Well," veya "Uh-oh," gibi ifadeler ekleyerek insansı bir dokunuş katın.
 
 ---
 
 ## 🛠 Teknik Altyapı
 
-*   **Frontend:** React (Hooks + Functional Components)
-*   **AI Engine:** Google Gemini 2.5 Flash Preview TTS
-*   **Styling:** Tailwind CSS (Modern Dark UI)
-*   **Visualization:** D3.js
-*   **Audio Engine:** Web Audio API (PCM Decoding & WAV Encoding)
-*   **Language Support:** Full i18n (Türkçe & English)
+*   **Motor:** Google Gemini 2.5 Flash Preview TTS
+*   **Frontend:** React 19 + TypeScript
+*   **Styling:** Tailwind CSS + Premium Glassmorphism
+*   **Analiz:** Web Audio API & D3.js Visualization
+*   **Format:** Yüksek kaliteli 24kHz Mono WAV export
 
 ---
 
 ## 👨‍💻 Geliştirici Notu
 
-Bu uygulama, eğitim materyali üretimini demokratikleştirmek ve öğretmenlerin yüksek maliyetli stüdyo ekipmanlarına veya pahalı aboneliklere ihtiyaç duymadan profesyonel içerik üretmelerini sağlamak amacıyla geliştirilmiştir.
+Kulaq Studio, karmaşık ses üretim süreçlerini basitleştirmek ve herkesin erişebileceği profesyonel bir seslendirme aracı sunmak amacıyla geliştirilmiştir. 
 
 **Geliştirici:** [Can AKALIN](https://instagram.com/can_akalin)
 
 ---
-
-## 📜 Lisans & Haklar
-
-Kulaq, Google Gemini API kullanım politikalarına tabidir. Ticari kullanımlarda Google'ın TTS kullanım şartlarının göz önünde bulundurulması önerilir.
-
----
-*Developed with ❤️ for Educators.*
+*Developed with ❤️ for high-quality audio experience.*
