@@ -42,11 +42,13 @@ const speedInstructions: Record<SpeechSpeed, string> = {
 
 const NON_VERBAL_CUE_INSTRUCTION = `
 STRICT PERFORMANCE RULE: 
-- Words inside square brackets are VOCAL ACTIONS: [laughs], [sighs], [clears throat], [coughs], [breathes in], [breathes out], [hesitates], [whispers], [shouts], [chuckles], [sniffles], [yawn], [sobbing], [giggles].
-- CRITICAL: DO NOT SAY THE WORDS INSIDE THE BRACKETS. DO NOT READ THE BRACKETED TEXT OUT LOUD.
-- INSTEAD, PERFORM THE SOUND EFFECT NATURALLY.
-- If you see "[laughs]", you must laugh, but NEVER say the word "laughs".
-- UPPERCASE words must be spoken with HIGHER VOLUME and STRONGER STRESS.
+- Use punctuation (commas, periods, ellipses) to control rhythm and pauses.
+- "..." (Ellipses) indicate a long, meaningful pause.
+- "," (Commas) indicate a short, natural breathing pause.
+- "[breathes in]" is a VOCAL ACTION. PERFORM THE SOUND of a natural intake of breath. 
+- CRITICAL: DO NOT SAY the words inside the brackets.
+- UPPERCASE words (e.g., "IMPORTANT") must be spoken with HIGHER VOLUME, STRONGER STRESS, and HIGHER PITCH to provide emphasis.
+- The delivery should sound professional and tailored for high-quality educational materials.
 `;
 
 const getVoiceStyleInstruction = (voice: VoiceName, ttsLang: AppLang) => {
@@ -88,28 +90,33 @@ export async function generateSingleSpeakerAudio(
     ${NON_VERBAL_CUE_INSTRUCTION}
     ${getVoiceStyleInstruction(voice, ttsLang)}
     ${speedInstructions[speed]} 
-    Script to be spoken in ${ttsLang.toUpperCase()} (DO NOT READ BRACKETED ACTIONS):
+    Script to be spoken in ${ttsLang.toUpperCase()} (PERFORM BRACKETED ACTIONS, STRESS UPPERCASE):
     ${text}
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: prompt }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: voice },
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: voice },
+          },
         },
       },
-    },
-  });
+    });
 
-  const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  if (!base64Audio) throw new Error("No audio data returned");
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) throw new Error("No audio data returned from API");
 
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-  return await decodeAudioData(decode(base64Audio), audioContext, SAMPLE_RATE, 1);
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+    return await decodeAudioData(decode(base64Audio), audioContext, SAMPLE_RATE, 1);
+  } catch (error: any) {
+    console.error("Gemini TTS Error:", error);
+    throw error;
+  }
 }
 
 export async function generateMultiSpeakerAudio(
@@ -133,36 +140,41 @@ export async function generateMultiSpeakerAudio(
 
   const prompt = `
     ${NON_VERBAL_CUE_INSTRUCTION}
-    SPEAK IN ${ttsLang.toUpperCase()} AS NATIVE SPEAKERS. DO NOT READ BRACKETED TEXT.
+    SPEAK IN ${ttsLang.toUpperCase()} AS NATIVE SPEAKERS. 
     ${voiceInstructions}
     ${speedInstructions[speed]} 
     Dialogue Script:
     ${conversationText}
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: prompt }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        multiSpeakerVoiceConfig: {
-          speakerVoiceConfigs: speakers.map(s => ({
-            speaker: s.name,
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: s.voice }
-            }
-          }))
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          multiSpeakerVoiceConfig: {
+            speakerVoiceConfigs: speakers.map(s => ({
+              speaker: s.name,
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: s.voice }
+              }
+            }))
+          }
         }
       }
-    }
-  });
+    });
 
-  const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  if (!base64Audio) throw new Error("No audio data returned");
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) throw new Error("No audio data returned from API");
 
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-  return await decodeAudioData(decode(base64Audio), audioContext, SAMPLE_RATE, 1);
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+    return await decodeAudioData(decode(base64Audio), audioContext, SAMPLE_RATE, 1);
+  } catch (error: any) {
+    console.error("Gemini Multi-Speaker TTS Error:", error);
+    throw error;
+  }
 }
 
 export function audioBufferToWavBlob(buffer: AudioBuffer): Blob {

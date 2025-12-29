@@ -62,7 +62,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ analyser, isPlaying }
   }, [analyser, isPlaying]);
 
   return (
-    <div className="w-full h-16 bg-indigo-50/20 rounded-[1.5rem] overflow-hidden border border-indigo-100 relative">
+    <div className="w-full h-16 bg-indigo-50/20 dark:bg-white/5 rounded-[1.5rem] overflow-hidden border border-indigo-100 dark:border-white/10 relative">
       <div className="absolute inset-0 flex items-center justify-center">
          <div className="w-full h-[1px] bg-indigo-500/10"></div>
       </div>
