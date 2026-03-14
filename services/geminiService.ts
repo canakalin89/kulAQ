@@ -33,6 +33,24 @@ async function decodeAudioData(
 
 const SAMPLE_RATE = 24000;
 
+function classifyError(error: any): Error {
+  const msg: string = error?.message?.toLowerCase() ?? '';
+  const status: number = error?.status ?? error?.code ?? 0;
+  if (msg.includes('api_key') || msg.includes('api key') || msg.includes('invalid key') || status === 401 || status === 403) {
+    return new Error('Invalid API key. Check your GEMINI_API_KEY environment variable.');
+  }
+  if (msg.includes('quota') || msg.includes('rate') || status === 429) {
+    return new Error('API quota exceeded or rate limited. Please wait a moment and try again.');
+  }
+  if (status >= 500 || msg.includes('unavailable') || msg.includes('internal')) {
+    return new Error('Gemini service is temporarily unavailable. Please try again.');
+  }
+  if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
+    return new Error('Network error. Check your internet connection and try again.');
+  }
+  return error instanceof Error ? error : new Error(String(error?.message ?? error));
+}
+
 const speedInstructions: Record<SpeechSpeed, string> = {
   'v-slow': "Speak extremely slowly, pausing significantly between every word. Articulate every syllable with perfect clarity.",
   'slow': "Speak slowly and clearly, as if teaching a beginner student.",
@@ -115,7 +133,7 @@ export async function generateSingleSpeakerAudio(
     return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini TTS Error:", error);
-    throw error;
+    throw classifyError(error);
   }
 }
 
@@ -173,7 +191,7 @@ export async function generateMultiSpeakerAudio(
     return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini Multi-Speaker TTS Error:", error);
-    throw error;
+    throw classifyError(error);
   }
 }
 

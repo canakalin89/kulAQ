@@ -118,7 +118,15 @@ const translations = {
     feat2Desc: 'A1-C2 seviyelerinde özel hız ve vurgu kontrolleri.',
     feat3: 'Stüdyo Kalitesi',
     feat3Desc: '24kHz yüksek kaliteli WAV formatında indirme imkanı.',
-    credit: 'Can AKALIN tarafından dinleme sınavları oluşturmanıza yardımcı olması amacıyla yaratılmıştır.'
+    credit: 'Can AKALIN tarafından dinleme sınavları oluşturmanıza yardımcı olması amacıyla yaratılmıştır.',
+    clearAll: 'Temizle',
+    addCharacter: '+ KARAKTER EKLE',
+    characterName: 'Karakter',
+    emptyLibrary: 'BOŞ',
+    howItWorks: 'Neler Yapabilir?',
+    tryNow: 'Hemen Dene',
+    emotionTitle: 'Duygu ve Nefes Kontrolü',
+    emotionDesc: 'Sadece metni okumaz, metin içindeki [breathes in] gibi komutlarla sese hayat verir. VURGU kontrolü ile ana dili gibi konuşur.'
   },
   en: {
     studio: 'Kulaq',
@@ -153,7 +161,15 @@ const translations = {
     feat2Desc: 'Precise speed and stress control for A1-C2 levels.',
     feat3: 'Studio Grade',
     feat3Desc: 'Download your projects in high-quality 24kHz WAV.',
-    credit: 'Created by Can AKALIN to help you build listening exams.'
+    credit: 'Created by Can AKALIN to help you build listening exams.',
+    clearAll: 'Clear All',
+    addCharacter: '+ ADD CHARACTER',
+    characterName: 'Speaker',
+    emptyLibrary: 'EMPTY',
+    howItWorks: 'How it works?',
+    tryNow: 'Try Now',
+    emotionTitle: 'Emotion & Breath Control',
+    emotionDesc: 'It doesn\'t just read text, it breathes life into voices with cues like [breathes in]. Speak like a native with STRESS control.'
   },
   de: {
     studio: 'Kulaq',
@@ -188,15 +204,23 @@ const translations = {
     feat2Desc: 'Präzise Tempo- und Betonungskontrolle für A1-C2.',
     feat3: 'Studio-Qualität',
     feat3Desc: 'Laden Sie Ihre Projekte in hochwertigem 24kHz WAV herunter.',
-    credit: 'Erstellt von Can AKALIN, um Ihnen beim Erstellen von Hörverstehenstests zu helfen.'
+    credit: 'Erstellt von Can AKALIN, um Ihnen beim Erstellen von Hörverstehenstests zu helfen.',
+    clearAll: 'Alles löschen',
+    addCharacter: '+ CHARAKTER HINZUFÜGEN',
+    characterName: 'Sprecher',
+    emptyLibrary: 'LEER',
+    howItWorks: 'Wie funktioniert es?',
+    tryNow: 'Jetzt ausprobieren',
+    emotionTitle: 'Emotion & Atemkontrolle',
+    emotionDesc: 'Es liest nicht nur Text, sondern haucht Stimmen mit Cues wie [breathes in] Leben ein. Sprechen Sie wie ein Muttersprachler mit BETONUNGS-Kontrolle.'
   }
 };
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('landing');
-  const [lang, setLang] = useState<AppLang>('tr');
+  const [lang, setLang] = useState<AppLang>(() => (localStorage.getItem('kulaq-lang') as AppLang) || 'tr');
   const [ttsLang, setTtsLang] = useState<AppLang>('tr');
-  const [theme, setTheme] = useState<'dark' | 'light'>('light');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('kulaq-theme') as 'dark' | 'light') || 'light');
   const [mode, setMode] = useState<'single' | 'multi'>('single');
   const [showTips, setShowTips] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
@@ -231,13 +255,19 @@ const App: React.FC = () => {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const startTimeRef = useRef<number>(0);
+  const animationIdRef = useRef<number>(0);
   
   const [activeBuffer, setActiveBuffer] = useState<AudioBuffer | null>(null);
   const [activeWavUrl, setActiveWavUrl] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.className = theme === 'light' ? 'light-mode' : 'dark-mode';
+    localStorage.setItem('kulaq-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('kulaq-lang', lang);
+  }, [lang]);
 
   useEffect(() => {
     const handleFsChange = () => setIsFullScreen(!!document.fullscreenElement);
@@ -276,12 +306,13 @@ const App: React.FC = () => {
       setPausedAt(0);
     } else {
       setCurrentTime(elapsed);
-      requestAnimationFrame(updateProgress);
+      animationIdRef.current = requestAnimationFrame(updateProgress);
     }
   }, [isPlaying, duration, pausedAt]);
 
   useEffect(() => {
-    if (isPlaying) requestAnimationFrame(updateProgress);
+    if (isPlaying) animationIdRef.current = requestAnimationFrame(updateProgress);
+    return () => cancelAnimationFrame(animationIdRef.current);
   }, [isPlaying, updateProgress]);
 
   const togglePlayback = () => {
@@ -373,7 +404,8 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    const input = mode === 'single' ? text : dialogue.map(d => d.text).join(' ');
+    const filteredDialogue = dialogue.filter(d => d.text.trim());
+    const input = mode === 'single' ? text : filteredDialogue.map(d => d.text).join(' ');
     if (!input.trim()) return;
     setIsGenerating(true);
     try {
@@ -387,27 +419,35 @@ const App: React.FC = () => {
       if (mode === 'single') {
         buffer = await generateSingleSpeakerAudio(text, selectedVoice, speed, ttsLang, ctx);
       } else {
-        buffer = await generateMultiSpeakerAudio(dialogue, speakers, speed, ttsLang, ctx);
+        buffer = await generateMultiSpeakerAudio(filteredDialogue, speakers, speed, ttsLang, ctx);
       }
       const blob = audioBufferToWavBlob(buffer);
       if (activeWavUrl) URL.revokeObjectURL(activeWavUrl);
       const url = URL.createObjectURL(blob);
-      setHistory(prev => [{
-        id: Math.random().toString(36).slice(2, 11),
-        text: input.slice(0, 30) + '...',
-        audioUrl: url,
-        timestamp: new Date(),
-        voice: mode === 'single' ? selectedVoice : 'Multi',
-        speed,
-        lang: ttsLang
-      }, ...prev]);
+      const MAX_HISTORY = 20;
+      setHistory(prev => {
+        const updated = [{
+          id: Math.random().toString(36).slice(2, 11),
+          text: input.slice(0, 30) + '...',
+          audioUrl: url,
+          timestamp: new Date(),
+          voice: mode === 'single' ? selectedVoice : 'Multi',
+          speed,
+          lang: ttsLang
+        }, ...prev];
+        if (updated.length > MAX_HISTORY) {
+          updated.slice(MAX_HISTORY).forEach(item => URL.revokeObjectURL(item.audioUrl));
+          return updated.slice(0, MAX_HISTORY);
+        }
+        return updated;
+      });
 
       setPausedAt(0);
       setCurrentTime(0);
       playBuffer(buffer, url, 0);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert(t.error);
+      alert(e?.message || t.error);
     } finally { setIsGenerating(false); }
   };
 
@@ -442,8 +482,10 @@ const App: React.FC = () => {
 
   const generateDownloadName = () => {
     const voicePart = mode === 'single' ? selectedVoice : 'multi';
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    return `kulaq_${voicePart}_${ttsLang}_${speed}_${date}.wav`;
+    const now = new Date();
+    const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timePart = now.toTimeString().slice(0, 5).replace(':', '');
+    return `kulaq_${voicePart}_${ttsLang}_${speed}_${datePart}_${timePart}.wav`;
   };
 
   const toggleLibrary = () => setIsLibraryOpen(!isLibraryOpen);
@@ -453,22 +495,32 @@ const App: React.FC = () => {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">{t.history}</h2>
-        <button onClick={() => setIsLibraryOpen(false)} className="lg:hidden text-slate-400 p-2"><i className="fa-solid fa-xmark"></i></button>
+        <div className="flex items-center gap-1">
+          {history.length > 0 && (
+            <button onClick={() => { history.forEach(item => URL.revokeObjectURL(item.audioUrl)); setHistory([]); }} className="text-[8px] font-bold uppercase tracking-widest text-red-400 hover:text-red-500 px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-all" aria-label={t.clearAll}>{t.clearAll}</button>
+          )}
+          <button onClick={() => setIsLibraryOpen(false)} className="lg:hidden text-slate-400 p-2"><i className="fa-solid fa-xmark"></i></button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
         {history.length === 0 ? (
           <div className="h-32 flex flex-col items-center justify-center opacity-10">
             <i className="fa-solid fa-folder-open mb-2 text-indigo-900 dark:text-indigo-400 text-xl"></i>
-            <span className="text-[9px] uppercase font-bold text-indigo-900 dark:text-indigo-400">{lang === 'tr' ? 'BOŞ' : 'EMPTY'}</span>
+            <span className="text-[9px] uppercase font-bold text-indigo-900 dark:text-indigo-400">{t.emptyLibrary}</span>
           </div>
         ) : (
           history.map(item => (
-            <div key={item.id} className={`p-4 border rounded-2xl transition-all cursor-pointer card-shadow ${theme === 'dark' ? 'bg-white/[0.02] border-white/[0.03] hover:bg-white/[0.05]' : 'bg-white border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30'}`} onClick={() => { fetch(item.audioUrl).then(r => r.arrayBuffer()).then(ab => audioContextRef.current?.decodeAudioData(ab)).then(b => b && playBuffer(b, item.audioUrl, 0)).catch(console.error); setIsLibraryOpen(false); }}>
+            <div key={item.id} className={`group relative p-4 border rounded-2xl transition-all cursor-pointer card-shadow ${theme === 'dark' ? 'bg-white/[0.02] border-white/[0.03] hover:bg-white/[0.05]' : 'bg-white border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30'}`} onClick={() => { fetch(item.audioUrl).then(r => r.arrayBuffer()).then(ab => audioContextRef.current?.decodeAudioData(ab)).then(b => b && playBuffer(b, item.audioUrl, 0)).catch(console.error); setIsLibraryOpen(false); }}>
                <div className="flex justify-between items-start mb-2">
                  <span className="text-[9px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">{item.voice} ({item.lang})</span>
                  <span className="text-[8px] text-slate-400 font-mono">{item.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                </div>
                <p className={`text-[11px] line-clamp-1 italic ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>"{item.text}"</p>
+               <button
+                 onClick={e => { e.stopPropagation(); URL.revokeObjectURL(item.audioUrl); setHistory(prev => prev.filter(h => h.id !== item.id)); }}
+                 className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 text-[10px]"
+                 aria-label="Delete"
+               ><i className="fa-solid fa-trash"></i></button>
             </div>
           ))
         )}
@@ -540,13 +592,16 @@ const App: React.FC = () => {
                ))
              )}
              {mode === 'multi' && speakers.length < 5 && (
-               <button onClick={() => setSpeakers([...speakers, { id: Date.now().toString(), name: `Karakter ${speakers.length + 1}`, voice: VoiceName.Puck }])} className="w-full py-3 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl text-[9px] font-bold text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 transition-all uppercase tracking-widest">+ KARAKTER EKLE</button>
+               <button onClick={() => setSpeakers([...speakers, { id: Date.now().toString(), name: `${t.characterName} ${speakers.length + 1}`, voice: VoiceName.Puck }])} className="w-full py-3 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl text-[9px] font-bold text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 transition-all uppercase tracking-widest">{t.addCharacter}</button>
              )}
            </div>
         </div>
       </div>
     </div>
   );
+
+  const currentInput = mode === 'single' ? text : dialogue.map(d => d.text).join(' ');
+  const canGenerate = !isGenerating && !!currentInput.trim();
 
   return (
     <div className="w-full h-full">
@@ -594,7 +649,7 @@ const App: React.FC = () => {
                     {t.getStarted} <i className="fa-solid fa-arrow-right-long"></i>
                   </button>
                   <button onClick={() => setShowTips(true)} className="px-8 md:px-10 py-4 md:py-5 rounded-2xl border-2 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-base md:text-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
-                    {lang === 'tr' ? 'Neler Yapabilir?' : 'How it works?'}
+                    {t.howItWorks}
                   </button>
                </div>
             </div>
@@ -620,15 +675,13 @@ const App: React.FC = () => {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
                      <div className="text-left space-y-4 md:space-y-6">
                         <h3 className={`text-3xl md:text-4xl font-black leading-tight ${theme === 'dark' ? 'text-white' : 'text-[#1e1b4b]'}`}>
-                          {lang === 'tr' ? 'Duygu ve Nefes Kontrolü' : 'Emotion & Breath Control'}
+                          {t.emotionTitle}
                         </h3>
                         <p className="text-sm md:text-lg text-slate-400 leading-relaxed font-medium">
-                          {lang === 'tr' 
-                            ? 'Sadece metni okumaz, metin içindeki [breathes in] gibi komutlarla sese hayat verir. VURGU kontrolü ile ana dili gibi konuşur.' 
-                            : 'It doesn\'t just read text, it breathes life into voices with cues like [breathes in]. Speak like a native with STRESS control.'}
+                          {t.emotionDesc}
                         </p>
                         <button onClick={() => setCurrentView('studio')} className="text-orange-500 font-bold flex items-center gap-2 hover:gap-4 transition-all text-sm md:text-base">
-                          {lang === 'tr' ? 'Hemen Dene' : 'Try Now'} <i className="fa-solid fa-arrow-right"></i>
+                          {t.tryNow} <i className="fa-solid fa-arrow-right"></i>
                         </button>
                      </div>
                      <div className="relative">
@@ -679,8 +732,8 @@ const App: React.FC = () => {
         <div className={`flex flex-col h-[100dvh] overflow-hidden ${theme === 'dark' ? 'bg-[#020617] text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
           <header className={`h-16 lg:h-20 flex items-center justify-between px-4 lg:px-8 border-b ${theme === 'dark' ? 'bg-[#0f172a] border-white/5' : 'bg-[#1e1b4b] border-indigo-900'} premium-blur z-[60] shadow-md shrink-0`}>
             <div className="flex items-center gap-3 lg:gap-6">
-              <button onClick={() => setCurrentView('landing')} className="w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl hover:bg-orange-500 transition-all"><i className="fa-solid fa-house"></i></button>
-              <button onClick={toggleLibrary} className="lg:hidden w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl"><i className="fa-solid fa-folder-tree"></i></button>
+              <button onClick={() => setCurrentView('landing')} aria-label="Home" className="w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl hover:bg-orange-500 transition-all"><i className="fa-solid fa-house"></i></button>
+              <button onClick={toggleLibrary} aria-label={t.history} className="lg:hidden w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl"><i className="fa-solid fa-folder-tree"></i></button>
               <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setCurrentView('landing')}>
                 <div className={`relative w-7 h-7 lg:w-9 lg:h-9 rounded-lg flex items-center justify-center shadow-lg overflow-hidden ${theme === 'dark' ? 'bg-indigo-600' : 'bg-orange-500'}`}>
                    <svg viewBox="0 0 100 100" className="w-4 h-4 lg:w-6 lg:h-6 text-white relative z-10">
@@ -708,19 +761,19 @@ const App: React.FC = () => {
                 </button>
               </div>
 
-              <button onClick={toggleFullScreen} className="md:hidden w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center" title={t.fullScreen}>
+              <button onClick={toggleFullScreen} aria-label={isFullScreen ? t.exitFullScreen : t.fullScreen} className="md:hidden w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center" title={t.fullScreen}>
                  <i className={`fa-solid ${isFullScreen ? 'fa-compress' : 'fa-expand'}`}></i>
               </button>
 
-              <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all ${theme === 'dark' ? 'border-white/10 text-slate-400 hover:text-white' : 'border-white/20 text-indigo-200 hover:text-white hover:bg-white/10'}`}>
+              <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Toggle theme" className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all ${theme === 'dark' ? 'border-white/10 text-slate-400 hover:text-white' : 'border-white/20 text-indigo-200 hover:text-white hover:bg-white/10'}`}>
                 <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} text-base`}></i>
               </button>
-              
-              <button onClick={() => setShowTips(true)} className={`text-[10px] font-bold tracking-widest transition-all border px-4 py-2 rounded-full flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400 border-white/5 hover:text-white' : 'text-indigo-200 border-white/10 hover:text-white'}`}>
+
+              <button onClick={() => setShowTips(true)} aria-label={t.tipsTitle} className={`text-[10px] font-bold tracking-widest transition-all border px-4 py-2 rounded-full flex items-center gap-2 ${theme === 'dark' ? 'text-slate-400 border-white/5 hover:text-white' : 'text-indigo-200 border-white/10 hover:text-white'}`}>
                 <i className="fa-solid fa-lightbulb text-orange-400"></i> <span className="hidden sm:inline">{lang === 'tr' ? 'REHBER' : 'GUIDE'}</span>
               </button>
-              
-              <button onClick={toggleSettings} className="lg:hidden w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl"><i className="fa-solid fa-sliders"></i></button>
+
+              <button onClick={toggleSettings} aria-label={t.config} className="lg:hidden w-10 h-10 flex items-center justify-center text-white/80 bg-white/5 rounded-xl"><i className="fa-solid fa-sliders"></i></button>
             </div>
           </header>
 
@@ -835,7 +888,7 @@ const App: React.FC = () => {
                       </div>
 
                       <div className="flex gap-2 lg:gap-4 w-full lg:flex-1">
-                        <button onClick={handleGenerate} disabled={isGenerating} className={`flex-1 h-12 lg:h-16 rounded-xl lg:rounded-2xl font-bold text-xs lg:text-sm tracking-[0.2em] lg:tracking-[0.4em] uppercase text-white transition-all btn-orange active:scale-[0.98] shadow-lg`}>
+                        <button onClick={handleGenerate} disabled={!canGenerate} className={`flex-1 h-12 lg:h-16 rounded-xl lg:rounded-2xl font-bold text-xs lg:text-sm tracking-[0.2em] lg:tracking-[0.4em] uppercase text-white transition-all active:scale-[0.98] shadow-lg ${canGenerate ? 'btn-orange' : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed opacity-60'}`}>
                           {isGenerating ? <i className="fa-solid fa-circle-notch fa-spin mr-3"></i> : <i className="fa-solid fa-bolt mr-3"></i>}
                           {isGenerating ? '...' : t.generate}
                         </button>
