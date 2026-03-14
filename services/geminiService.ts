@@ -83,13 +83,14 @@ export async function generateSingleSpeakerAudio(
   text: string,
   voice: VoiceName,
   speed: SpeechSpeed = 'normal',
-  ttsLang: AppLang = 'tr'
+  ttsLang: AppLang = 'tr',
+  ctx: AudioContext
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `
     ${NON_VERBAL_CUE_INSTRUCTION}
     ${getVoiceStyleInstruction(voice, ttsLang)}
-    ${speedInstructions[speed]} 
+    ${speedInstructions[speed]}
     Script to be spoken in ${ttsLang.toUpperCase()} (PERFORM BRACKETED ACTIONS, STRESS UPPERCASE):
     ${text}
   `;
@@ -111,8 +112,7 @@ export async function generateSingleSpeakerAudio(
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) throw new Error("No audio data returned from API");
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-    return await decodeAudioData(decode(base64Audio), audioContext, SAMPLE_RATE, 1);
+    return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini TTS Error:", error);
     throw error;
@@ -123,7 +123,8 @@ export async function generateMultiSpeakerAudio(
   dialogue: DialogueItem[],
   speakers: SpeakerConfig[],
   speed: SpeechSpeed = 'normal',
-  ttsLang: AppLang = 'tr'
+  ttsLang: AppLang = 'tr',
+  ctx: AudioContext
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -169,8 +170,7 @@ export async function generateMultiSpeakerAudio(
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) throw new Error("No audio data returned from API");
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-    return await decodeAudioData(decode(base64Audio), audioContext, SAMPLE_RATE, 1);
+    return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini Multi-Speaker TTS Error:", error);
     throw error;
@@ -178,7 +178,7 @@ export async function generateMultiSpeakerAudio(
 }
 
 export function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
-  const length = buffer.length * 2 + 44;
+  const length = buffer.length * 2 * buffer.numberOfChannels + 44;
   const bufferArray = new ArrayBuffer(length);
   const view = new DataView(bufferArray);
   let pos = 0;

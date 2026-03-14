@@ -108,6 +108,8 @@ const translations = {
     exitFullScreen: 'Çıkış',
     fsWarning: 'Butonlar görünmüyorsa tam ekrana geçin',
     getStarted: 'Stüdyoyu Başlat',
+    addLine: '+ Satır Ekle',
+    error: 'Hata: Üretim sırasında bir sorun oluştu. API anahtarınızı ve bağlantınızı kontrol edin.',
     heroTitle: 'Yapay Zekanın En Doğal Sesi',
     heroSub: 'ElevenLabs kalitesinde, Gemini 2.5 gücüyle profesyonel seslendirme ve diyaloglar oluşturun.',
     feat1: 'Çoklu Karakter',
@@ -141,6 +143,8 @@ const translations = {
     exitFullScreen: 'Exit',
     fsWarning: 'If buttons are hidden, use full screen',
     getStarted: 'Launch Studio',
+    addLine: '+ Add Line',
+    error: 'Error: Something went wrong during generation. Check your API key and connection.',
     heroTitle: 'The Most Natural AI Voice',
     heroSub: 'Create professional voiceovers and dialogues with Gemini 2.5 power and ElevenLabs quality.',
     feat1: 'Multi-Speaker',
@@ -164,7 +168,7 @@ const translations = {
     multi: 'DIALOG',
     placeholder: 'Text hier eingeben oder Beispiel wählen...',
     tipsTitle: 'Studio Guide',
-    tipsDesc: 'Nutzen Sie diese Teknichken für natürliche Sprache:',
+    tipsDesc: 'Nutzen Sie diese Techniken für natürliche Sprache:',
     uppercaseTip: 'Schreiben Sie Wörter, die BETONT werden sollen, GROSS.',
     pauseTip: 'Nutzen Sie "..." für lange Pausen und Kommas für kurze.',
     breathTip: 'Nutzen Sie [breathes in] for natürliches Einatmen.',
@@ -174,10 +178,12 @@ const translations = {
     exitFullScreen: 'Beenden',
     fsWarning: 'Vollbild nutzen, falls Buttons fehlen',
     getStarted: 'Studio Starten',
+    addLine: '+ Zeile hinzufügen',
+    error: 'Fehler: Bei der Generierung ist ein Problem aufgetreten. Überprüfen Sie Ihren API-Schlüssel und Ihre Verbindung.',
     heroTitle: 'Die natürlichste KI-Stimme',
     heroSub: 'Erstellen Sie professionelle Voiceovers mit der Kraft von Gemini 2.5 und ElevenLabs-Qualität.',
     feat1: 'Mehrere Sprecher',
-    feat1Desc: 'Erstellen Sie Dialoge mit bu zu 6 Charakteren gleichzeitig.',
+    feat1Desc: 'Erstellen Sie Dialoge mit bis zu 6 Charakteren gleichzeitig.',
     feat2: 'CEFR-Konform',
     feat2Desc: 'Präzise Tempo- und Betonungskontrolle für A1-C2.',
     feat3: 'Studio-Qualität',
@@ -239,6 +245,14 @@ const App: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
+  const historyRef = useRef<AudioGenerationHistory[]>([]);
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+  useEffect(() => {
+    return () => { historyRef.current.forEach(item => URL.revokeObjectURL(item.audioUrl)); };
+  }, []);
+
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(err => {
@@ -283,7 +297,7 @@ const App: React.FC = () => {
 
   const stopAudio = useCallback(() => {
     if (sourceRef.current) {
-      try { sourceRef.current.stop(); } catch (e) {}
+      try { sourceRef.current.stop(); } catch (e) { /* stop() throws if source already ended */ }
       sourceRef.current = null;
     }
     setIsPlaying(false);
@@ -293,7 +307,7 @@ const App: React.FC = () => {
 
   const pauseAudio = useCallback(() => {
     if (sourceRef.current) {
-      try { sourceRef.current.stop(); } catch (e) {}
+      try { sourceRef.current.stop(); } catch (e) { /* stop() throws if source already ended */ }
       sourceRef.current = null;
     }
     if (audioContextRef.current) {
@@ -311,7 +325,7 @@ const App: React.FC = () => {
     }
     
     if (sourceRef.current) {
-      try { sourceRef.current.stop(); } catch (e) {}
+      try { sourceRef.current.stop(); } catch (e) { /* stop() throws if source already ended */ }
     }
 
     const source = audioContextRef.current.createBufferSource();
@@ -363,16 +377,23 @@ const App: React.FC = () => {
     if (!input.trim()) return;
     setIsGenerating(true);
     try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        analyserRef.current.connect(audioContextRef.current.destination);
+      }
+      const ctx = audioContextRef.current;
       let buffer: AudioBuffer;
       if (mode === 'single') {
-        buffer = await generateSingleSpeakerAudio(text, selectedVoice, speed, ttsLang);
+        buffer = await generateSingleSpeakerAudio(text, selectedVoice, speed, ttsLang, ctx);
       } else {
-        buffer = await generateMultiSpeakerAudio(dialogue, speakers, speed, ttsLang);
+        buffer = await generateMultiSpeakerAudio(dialogue, speakers, speed, ttsLang, ctx);
       }
       const blob = audioBufferToWavBlob(buffer);
+      if (activeWavUrl) URL.revokeObjectURL(activeWavUrl);
       const url = URL.createObjectURL(blob);
       setHistory(prev => [{
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).slice(2, 11),
         text: input.slice(0, 30) + '...',
         audioUrl: url,
         timestamp: new Date(),
@@ -380,13 +401,13 @@ const App: React.FC = () => {
         speed,
         lang: ttsLang
       }, ...prev]);
-      
+
       setPausedAt(0);
       setCurrentTime(0);
       playBuffer(buffer, url, 0);
-    } catch (e) { 
-      console.error(e); 
-      alert("Hata: Üretim sırasında bir sorun oluştu. API anahtarınızı ve bağlantınızı kontrol edin.");
+    } catch (e) {
+      console.error(e);
+      alert(t.error);
     } finally { setIsGenerating(false); }
   };
 
@@ -442,7 +463,7 @@ const App: React.FC = () => {
           </div>
         ) : (
           history.map(item => (
-            <div key={item.id} className={`p-4 border rounded-2xl transition-all cursor-pointer card-shadow ${theme === 'dark' ? 'bg-white/[0.02] border-white/[0.03] hover:bg-white/[0.05]' : 'bg-white border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30'}`} onClick={() => { fetch(item.audioUrl).then(r => r.arrayBuffer()).then(ab => audioContextRef.current?.decodeAudioData(ab)).then(b => b && playBuffer(b, item.audioUrl, 0)); setIsLibraryOpen(false); }}>
+            <div key={item.id} className={`p-4 border rounded-2xl transition-all cursor-pointer card-shadow ${theme === 'dark' ? 'bg-white/[0.02] border-white/[0.03] hover:bg-white/[0.05]' : 'bg-white border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30'}`} onClick={() => { fetch(item.audioUrl).then(r => r.arrayBuffer()).then(ab => audioContextRef.current?.decodeAudioData(ab)).then(b => b && playBuffer(b, item.audioUrl, 0)).catch(console.error); setIsLibraryOpen(false); }}>
                <div className="flex justify-between items-start mb-2">
                  <span className="text-[9px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">{item.voice} ({item.lang})</span>
                  <span className="text-[8px] text-slate-400 font-mono">{item.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
@@ -764,7 +785,7 @@ const App: React.FC = () => {
                           />
                         </div>
                       ))}
-                      <button onClick={() => setDialogue([...dialogue, { speakerId: speakers[0].id, text: '' }])} className="w-full py-4 lg:py-8 border-2 border-dashed rounded-2xl lg:rounded-3xl text-indigo-300 dark:text-indigo-500 hover:text-indigo-600 hover:border-indigo-300 transition-all text-[10px] lg:text-[12px] font-bold uppercase tracking-widest">+ Satır Ekle</button>
+                      <button onClick={() => setDialogue([...dialogue, { speakerId: speakers[0].id, text: '' }])} className="w-full py-4 lg:py-8 border-2 border-dashed rounded-2xl lg:rounded-3xl text-indigo-300 dark:text-indigo-500 hover:text-indigo-600 hover:border-indigo-300 transition-all text-[10px] lg:text-[12px] font-bold uppercase tracking-widest">{t.addLine}</button>
                     </div>
                   )}
                 </div>
