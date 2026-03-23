@@ -33,6 +33,24 @@ async function decodeAudioData(
 
 const SAMPLE_RATE = 24000;
 
+function classifyError(error: any): Error {
+  const msg: string = error?.message?.toLowerCase() ?? '';
+  const status: number = error?.status ?? error?.code ?? 0;
+  if (msg.includes('api_key') || msg.includes('api key') || msg.includes('invalid key') || status === 401 || status === 403) {
+    return new Error('Invalid API key. Check your GEMINI_API_KEY environment variable.');
+  }
+  if (msg.includes('quota') || msg.includes('rate') || status === 429) {
+    return new Error('API quota exceeded or rate limited. Please wait a moment and try again.');
+  }
+  if (status >= 500 || msg.includes('unavailable') || msg.includes('internal')) {
+    return new Error('Gemini service is temporarily unavailable. Please try again.');
+  }
+  if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
+    return new Error('Network error. Check your internet connection and try again.');
+  }
+  return error instanceof Error ? error : new Error(String(error?.message ?? error));
+}
+
 const speedInstructions: Record<SpeechSpeed, string> = {
   'v-slow': "Speak extremely slowly, pausing significantly between every word. Articulate every syllable with perfect clarity.",
   'slow': "Speak slowly and clearly, as if teaching a beginner student.",
@@ -83,13 +101,14 @@ export async function generateSingleSpeakerAudio(
   text: string,
   voice: VoiceName,
   speed: SpeechSpeed = 'normal',
-  ttsLang: AppLang = 'tr'
+  ttsLang: AppLang = 'tr',
+  ctx: AudioContext
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `
     ${NON_VERBAL_CUE_INSTRUCTION}
     ${getVoiceStyleInstruction(voice, ttsLang)}
-    ${speedInstructions[speed]} 
+    ${speedInstructions[speed]}
     Script to be spoken in ${ttsLang.toUpperCase()} (PERFORM BRACKETED ACTIONS, STRESS UPPERCASE):
     ${text}
   `;
@@ -111,11 +130,10 @@ export async function generateSingleSpeakerAudio(
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) throw new Error("No audio data returned from API");
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-    return await decodeAudioData(decode(base64Audio), audioContext, SAMPLE_RATE, 1);
+    return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini TTS Error:", error);
-    throw error;
+    throw classifyError(error);
   }
 }
 
@@ -123,7 +141,8 @@ export async function generateMultiSpeakerAudio(
   dialogue: DialogueItem[],
   speakers: SpeakerConfig[],
   speed: SpeechSpeed = 'normal',
-  ttsLang: AppLang = 'tr'
+  ttsLang: AppLang = 'tr',
+  ctx: AudioContext
 ): Promise<AudioBuffer> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -169,16 +188,15 @@ export async function generateMultiSpeakerAudio(
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) throw new Error("No audio data returned from API");
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-    return await decodeAudioData(decode(base64Audio), audioContext, SAMPLE_RATE, 1);
+    return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini Multi-Speaker TTS Error:", error);
-    throw error;
+    throw classifyError(error);
   }
 }
 
 export function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
-  const length = buffer.length * 2 + 44;
+  const length = buffer.length * 2 * buffer.numberOfChannels + 44;
   const bufferArray = new ArrayBuffer(length);
   const view = new DataView(bufferArray);
   let pos = 0;
