@@ -81,6 +81,9 @@ const PERFORMANCE_TOOLS = [
   { tag: '...', label: { tr: 'Uzun Es', en: 'Long Pause', de: 'Pause' } },
   { tag: ',', label: { tr: 'Kısa Es', en: 'Short Pause', de: 'Kurzes Es' } },
   { tag: '[breathes in]', label: { tr: 'Nefes', en: 'Breath', de: 'Atem' } },
+  { tag: '[laughs]', label: { tr: 'Güler', en: 'Laugh', de: 'Lacht' } },
+  { tag: '[sighs]', label: { tr: 'İçini Çeker', en: 'Sigh', de: 'Seufzt' } },
+  { tag: '[clears throat]', label: { tr: 'Boğaz Temizler', en: 'Clear Throat', de: 'Räuspert' } },
   { tag: 'VURGU', label: { tr: 'Vurgu (ABC)', en: 'Stress (ABC)', de: 'Betonung' }, isInfo: true },
 ];
 
@@ -259,6 +262,13 @@ const App: React.FC = () => {
   
   const [activeBuffer, setActiveBuffer] = useState<AudioBuffer | null>(null);
   const [activeWavUrl, setActiveWavUrl] = useState<string | null>(null);
+
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toastMsg) return;
+    const timer = setTimeout(() => setToastMsg(null), 5000);
+    return () => clearTimeout(timer);
+  }, [toastMsg]);
 
   useEffect(() => {
     document.body.className = theme === 'light' ? 'light-mode' : 'dark-mode';
@@ -447,9 +457,22 @@ const App: React.FC = () => {
       playBuffer(buffer, url, 0);
     } catch (e: any) {
       console.error(e);
-      alert(e?.message || t.error);
+      setToastMsg(e?.message || t.error);
     } finally { setIsGenerating(false); }
   };
+
+  const handleGenerateRef = useRef(handleGenerate);
+  handleGenerateRef.current = handleGenerate;
+  useEffect(() => {
+    if (currentView !== 'studio') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        handleGenerateRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [currentView]);
 
   const insertFx = (tag: string) => {
     if (tag === 'VURGU') {
@@ -813,20 +836,28 @@ const App: React.FC = () => {
               <div className="flex-1 px-4 lg:px-10 pb-4 lg:pb-10 overflow-hidden flex flex-col">
                 <div className={`flex-1 border rounded-[1.5rem] lg:rounded-[2.5rem] p-6 lg:p-12 overflow-hidden flex flex-col card-shadow relative ${theme === 'dark' ? 'bg-[#0f172a]/40 border-white/[0.05]' : 'bg-white border-indigo-50'}`}>
                   {mode === 'single' ? (
-                    <textarea 
-                      value={text} 
-                      onChange={e => setText(e.target.value)} 
-                      placeholder={t.placeholder}
-                      className={`w-full h-full bg-transparent border-none outline-none focus:ring-0 text-xl lg:text-4xl font-light leading-relaxed custom-scrollbar resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
-                    />
+                    <>
+                      <textarea 
+                        value={text} 
+                        onChange={e => setText(e.target.value)} 
+                        placeholder={t.placeholder}
+                        className={`w-full flex-1 bg-transparent border-none outline-none focus:ring-0 text-xl lg:text-4xl font-light leading-relaxed custom-scrollbar resize-none ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}
+                      />
+                      <div className="flex justify-end pt-2 shrink-0">
+                        <span className="text-[9px] font-mono text-slate-300 dark:text-slate-600 select-none">{text.length} chars</span>
+                      </div>
+                    </>
                   ) : (
-                    <div className="h-full overflow-y-auto space-y-6 lg:sort-y-10 pr-2 custom-scrollbar">
+                    <div className="h-full overflow-y-auto space-y-6 lg:space-y-10 pr-2 custom-scrollbar">
                       {dialogue.map((item, idx) => (
                         <div key={idx} className="flex flex-col sm:flex-row gap-4 sm:gap-10 group">
                           <div className="shrink-0 flex flex-row sm:flex-col gap-3 items-center sm:items-stretch">
-                            <div className={`px-3 lg:px-5 py-2 lg:py-2.5 border rounded-xl text-[10px] lg:text-[11px] font-bold uppercase min-w-[80px] lg:min-w-[120px] text-center ${theme === 'dark' ? 'bg-white/[0.03] border-white/[0.08] text-slate-400' : 'bg-indigo-50/50 border-indigo-100 text-indigo-600'}`}>
-                              {speakers.find(s => s.id === item.speakerId)?.name || 'Anonim'}
-                            </div>
+                            <select
+                              value={item.speakerId}
+                              onChange={e => { const n = [...dialogue]; n[idx].speakerId = e.target.value; setDialogue(n); }}
+                              className={`px-3 lg:px-5 py-2 lg:py-2.5 border rounded-xl text-[10px] lg:text-[11px] font-bold uppercase min-w-[80px] lg:min-w-[120px] text-center cursor-pointer outline-none appearance-none ${theme === 'dark' ? 'bg-white/[0.03] border-white/[0.08] text-slate-400' : 'bg-indigo-50/50 border-indigo-100 text-indigo-600'}`}>
+                              {speakers.map(s => <option key={s.id} value={s.id} className="dark:bg-slate-900 dark:text-white">{s.name}</option>)}
+                            </select>
                             <button onClick={() => setDialogue(dialogue.filter((_, i) => i !== idx))} className="sm:opacity-0 group-hover:opacity-100 transition-all text-slate-400 hover:text-red-500 text-xs text-center p-1"><i className="fa-solid fa-trash"></i></button>
                           </div>
                           <textarea 
@@ -940,6 +971,16 @@ const App: React.FC = () => {
               {t.close}
             </button>
           </div>
+        </div>
+      )}
+
+      {toastMsg && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-medium max-w-[90vw] bg-red-600 text-white animate-fade-in">
+          <i className="fa-solid fa-circle-exclamation shrink-0"></i>
+          <span className="flex-1">{toastMsg}</span>
+          <button onClick={() => setToastMsg(null)} className="shrink-0 opacity-70 hover:opacity-100 transition-opacity ml-2">
+            <i className="fa-solid fa-xmark"></i>
+          </button>
         </div>
       )}
 
