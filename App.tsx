@@ -326,24 +326,18 @@ const App: React.FC = () => {
 
           {/* Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* TTS Language */}
-            <select
-              value={ttsLang}
-              onChange={e => setTtsLang(e.target.value as AppLang)}
-              style={{ background: surfac2, color: 'var(--text)', border: `1px solid ${border}`, borderRadius: 8, padding: '4px 8px', fontSize: 13, cursor: 'pointer' }}
-            >
-              <option value="tr">🇹🇷 TR</option>
-              <option value="en">🇬🇧 EN</option>
-              <option value="de">🇩🇪 DE</option>
-            </select>
-
             {/* UI lang toggle */}
-            <button
-              onClick={() => setLang(isTr ? 'en' : 'tr')}
-              style={{ background: surfac2, border: `1px solid ${border}`, borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--text)' }}
-            >
-              {isTr ? 'EN' : 'TR'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 10, color: muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {isTr ? 'Menü' : 'Menu'}
+              </span>
+              <button
+                onClick={() => setLang(isTr ? 'en' : 'tr')}
+                style={{ background: surfac2, border: `1px solid ${border}`, borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--text)' }}
+              >
+                {isTr ? 'EN' : 'TR'}
+              </button>
+            </div>
 
             {/* Theme */}
             <button
@@ -358,6 +352,50 @@ const App: React.FC = () => {
 
       {/* ── Main ───────────────────────────────────────────────────────── */}
       <main style={{ maxWidth: 680, margin: '0 auto', padding: '24px 20px 60px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* ── TTS Language Selector ──────────────────────────────────── */}
+        <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 16 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted, margin: '0 0 12px' }}>
+            🔊 {isTr ? 'Hangi dilde seslendirelim?' : 'Which language should we speak?'}
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {([
+              { id: 'tr' as AppLang, flag: '🇹🇷', name: 'Türkçe',  descTr: 'Türkçe seslet',  descEn: 'Speak in Turkish'  },
+              { id: 'en' as AppLang, flag: '🇬🇧', name: 'English',  descTr: 'İngilizce seslet', descEn: 'Speak in English' },
+              { id: 'de' as AppLang, flag: '🇩🇪', name: 'Deutsch',  descTr: 'Almanca seslet',  descEn: 'Speak in German'  },
+            ]).map(l => {
+              const isActive = ttsLang === l.id;
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => setTtsLang(l.id)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                    padding: '14px 8px', borderRadius: 12, border: `2px solid ${isActive ? accent : border}`,
+                    background: isActive ? (theme === 'dark' ? 'rgba(99,102,241,0.15)' : 'rgba(30,27,75,0.06)') : surface,
+                    cursor: 'pointer', transition: 'all .15s',
+                    boxShadow: isActive ? `0 0 0 3px ${theme === 'dark' ? 'rgba(99,102,241,0.25)' : 'rgba(30,27,75,0.12)'}` : 'none',
+                  }}
+                >
+                  <span style={{ fontSize: 28, lineHeight: 1 }}>{l.flag}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: isActive ? accent : 'var(--text)' }}>{l.name}</span>
+                  <span style={{ fontSize: 10, color: muted, textAlign: 'center', lineHeight: 1.3 }}>
+                    {isTr ? l.descTr : l.descEn}
+                  </span>
+                  {isActive && (
+                    <span style={{
+                      marginTop: 2, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                      color: accent, background: theme === 'dark' ? 'rgba(99,102,241,0.2)' : 'rgba(30,27,75,0.08)',
+                      borderRadius: 99, padding: '2px 7px',
+                    }}>
+                      ✓ {isTr ? 'Seçili' : 'Active'}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Mode tabs */}
         <div style={{ display: 'inline-flex', background: surfac2, borderRadius: 12, padding: 4, gap: 4, alignSelf: 'flex-start' }}>
