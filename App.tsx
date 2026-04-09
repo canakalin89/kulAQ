@@ -47,6 +47,43 @@ function fmt(s: number): string {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
+/** Split long text into sentence-boundary chunks for parallel generation */
+function splitIntoChunks(text: string, maxLen = 350): string[] {
+  if (text.length <= maxLen) return [text];
+  const chunks: string[] = [];
+  // Split at sentence boundaries: . ! ? … followed by space or end
+  const sentences = text.match(/[^.!?…\n]+(?:[.!?…]+\s*|\n|$)/g) ?? [text];
+  let current = '';
+  for (const sentence of sentences) {
+    if (current.length + sentence.length > maxLen && current.trim()) {
+      chunks.push(current.trim());
+      current = sentence;
+    } else {
+      current += sentence;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length > 0 ? chunks : [text];
+}
+
+/** Concatenate multiple AudioBuffers into one */
+function mergeBuffers(buffers: AudioBuffer[], ctx: AudioContext): AudioBuffer {
+  const totalLen = buffers.reduce((s, b) => s + b.length, 0);
+  const merged   = ctx.createBuffer(1, totalLen, buffers[0].sampleRate);
+  const out      = merged.getChannelData(0);
+  let offset     = 0;
+  for (const buf of buffers) {
+    out.set(buf.getChannelData(0), offset);
+    offset += buf.length;
+  }
+  return merged;
+}
+
+/** Simple LRU-style cache key */
+function cacheKey(text: string, voice: string, speed: string, lang: string): string {
+  return `${voice}|${speed}|${lang}|${text}`;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const App: React.FC = () => {
@@ -58,6 +95,7 @@ const App: React.FC = () => {
   const [voice, setVoice]       = useState<VoiceName>(VoiceName.Zephyr);
   const [speed, setSpeed]       = useState<SpeechSpeed>('normal');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [chunkProgress, setChunkProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError]       = useState<string | null>(null);
   const [history, setHistory]   = useState<AudioGenerationHistory[]>([]);
   const [showLibrary, setShowLibrary] = useState(false);
@@ -77,6 +115,7 @@ const App: React.FC = () => {
   const startTimeRef    = useRef<number>(0);
   const animIdRef       = useRef<number>(0);
   const textareaRef     = useRef<HTMLTextAreaElement>(null);
+  const audioCacheRef   = useRef<Map<string, AudioBuffer>>(new Map());
 
   const isTr = lang === 'tr';
 
@@ -151,6 +190,7 @@ const App: React.FC = () => {
   const handleGenerate = async () => {
     if (!text.trim() || isGenerating) return;
     setIsGenerating(true);
+    setChunkProgress(null);
     setError(null);
     stopAudio();
     setActiveBuffer(null);
@@ -162,7 +202,40 @@ const App: React.FC = () => {
       let buffer: AudioBuffer;
 
       if (mode === 'single') {
-        buffer = await generateSingleSpeakerAudio(text, voice, speed, ttsLang, ctx);
+        const key = cacheKey(text, voice, speed, ttsLang);
+        const cached = audioCacheRef.current.get(key);
+
+        if (cached) {
+          buffer = cached;
+        } else {
+          const chunks = splitIntoChunks(text);
+
+          if (chunks.length === 1) {
+            // Short text — single call
+            buffer = await generateSingleSpeakerAudio(text, voice, speed, ttsLang, ctx);
+          } else {
+            // Long text — parallel chunk generation
+            setChunkProgress({ done: 0, total: chunks.length });
+            let done = 0;
+            const buffers = await Promise.all(
+              chunks.map(chunk =>
+                generateSingleSpeakerAudio(chunk, voice, speed, ttsLang, ctx).then(b => {
+                  done++;
+                  setChunkProgress({ done, total: chunks.length });
+                  return b;
+                })
+              )
+            );
+            buffer = mergeBuffers(buffers, ctx);
+          }
+
+          // Cache result (keep max 20 entries)
+          if (audioCacheRef.current.size >= 20) {
+            const firstKey = audioCacheRef.current.keys().next().value;
+            if (firstKey) audioCacheRef.current.delete(firstKey);
+          }
+          audioCacheRef.current.set(key, buffer);
+        }
       } else {
         const speakers: SpeakerConfig[] = speakerNames.map((name, i) => ({
           id: `s${i}`,
@@ -176,6 +249,7 @@ const App: React.FC = () => {
         buffer = await generateMultiSpeakerAudio(dialogue, speakers, speed, ttsLang, ctx);
       }
 
+      setChunkProgress(null);
       setActiveBuffer(buffer);
       setDuration(buffer.duration);
       const wavBlob = audioBufferToWavBlob(buffer);
@@ -194,6 +268,7 @@ const App: React.FC = () => {
       setHistory(prev => [entry, ...prev]);
       playBuffer(buffer);
     } catch (e: any) {
+      setChunkProgress(null);
       setError(e.message ?? 'Bilinmeyen hata');
     } finally {
       setIsGenerating(false);
@@ -461,7 +536,9 @@ const App: React.FC = () => {
           }}
         >
           {isGenerating
-            ? `⏳ ${isTr ? 'Üretiliyor…' : 'Generating…'}`
+            ? chunkProgress
+              ? `⚡ ${chunkProgress.done}/${chunkProgress.total} ${isTr ? 'parça…' : 'chunks…'}`
+              : `⏳ ${isTr ? 'Üretiliyor…' : 'Generating…'}`
             : `🎙️ ${isTr ? 'SESLENDİR' : 'GENERATE'}`
           }
         </button>
