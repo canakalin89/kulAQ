@@ -124,6 +124,8 @@ const App: React.FC = () => {
   const [ttsLang, setTtsLang]   = useState<AppLang>('en');
   const [theme, setTheme]       = useState<'dark' | 'light'>(() => (localStorage.getItem('kulaq-theme') as 'dark' | 'light') || 'light');
   const [engine, setEngine]     = useState<'browser' | 'gemini'>(() => (localStorage.getItem('kulaq-engine') as 'browser' | 'gemini') || 'browser');
+  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('kulaq-gemini-api-key') || '');
+  const [rememberGeminiKey, setRememberGeminiKey] = useState(() => localStorage.getItem('kulaq-remember-gemini-key') === 'true');
   const [mode, setMode]         = useState<'single' | 'multi'>('single');
   const [text, setText]         = useState('');
   const [voice, setVoice]       = useState<VoiceName>(VoiceName.Zephyr);
@@ -163,6 +165,14 @@ const App: React.FC = () => {
 
   useEffect(() => { localStorage.setItem('kulaq-lang', lang); }, [lang]);
   useEffect(() => { localStorage.setItem('kulaq-engine', engine); }, [engine]);
+  useEffect(() => {
+    localStorage.setItem('kulaq-remember-gemini-key', String(rememberGeminiKey));
+    if (rememberGeminiKey && geminiApiKey.trim()) {
+      localStorage.setItem('kulaq-gemini-api-key', geminiApiKey.trim());
+    } else {
+      localStorage.removeItem('kulaq-gemini-api-key');
+    }
+  }, [geminiApiKey, rememberGeminiKey]);
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
@@ -319,6 +329,7 @@ const App: React.FC = () => {
 
       const { ctx } = getCtx();
       let buffer: AudioBuffer;
+      const userGeminiApiKey = geminiApiKey.trim() || undefined;
 
       if (mode === 'single') {
         const key = cacheKey(text, voice, speed, ttsLang);
@@ -331,14 +342,14 @@ const App: React.FC = () => {
 
           if (chunks.length === 1) {
             // Short text — single call
-            buffer = await generateSingleSpeakerAudio(text, voice, speed, ttsLang, ctx);
+            buffer = await generateSingleSpeakerAudio(text, voice, speed, ttsLang, ctx, userGeminiApiKey);
           } else {
             // Long text — parallel chunk generation
             setChunkProgress({ done: 0, total: chunks.length });
             let done = 0;
             const buffers = await Promise.all(
               chunks.map(chunk =>
-                generateSingleSpeakerAudio(chunk, voice, speed, ttsLang, ctx).then(b => {
+                generateSingleSpeakerAudio(chunk, voice, speed, ttsLang, ctx, userGeminiApiKey).then(b => {
                   done++;
                   setChunkProgress({ done, total: chunks.length });
                   return b;
@@ -365,7 +376,7 @@ const App: React.FC = () => {
           speakerId: speakers.find(s => s.name === p.name)!.id,
           text: p.line,
         }));
-        buffer = await generateMultiSpeakerAudio(dialogue, speakers, speed, ttsLang, ctx);
+        buffer = await generateMultiSpeakerAudio(dialogue, speakers, speed, ttsLang, ctx, userGeminiApiKey);
       }
 
       setChunkProgress(null);
@@ -570,6 +581,44 @@ const App: React.FC = () => {
                 ? 'Bu mod abonelik istemez. Ses kalitesi ve karakter çeşitliliği kullandığınız tarayıcı/cihaz seslerine bağlıdır; WAV indirme sunmaz.'
                 : 'This mode needs no subscription. Voice quality and variety depend on your browser/device voices; WAV download is not available.'}
             </p>
+          )}
+          {engine === 'gemini' && (
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: muted }}>
+                Gemini API Key
+              </label>
+              <input
+                type="password"
+                value={geminiApiKey}
+                onChange={e => setGeminiApiKey(e.target.value)}
+                placeholder={isTr ? 'Boş bırakılırsa Netlify anahtarı kullanılır' : 'Leave empty to use the Netlify key'}
+                autoComplete="off"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  background: surfac2,
+                  color: 'var(--text)',
+                  border: `1px solid ${border}`,
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+              />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: muted, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={rememberGeminiKey}
+                  onChange={e => setRememberGeminiKey(e.target.checked)}
+                />
+                {isTr ? 'Bu cihazda hatırla' : 'Remember on this device'}
+              </label>
+              <p style={{ margin: 0, fontSize: 11, color: muted, lineHeight: 1.45 }}>
+                {isTr
+                  ? 'Anahtar yalnızca ses üretimi isteğinde kullanılır. Hatırlama açık değilse tarayıcıda saklanmaz.'
+                  : 'The key is used only for audio generation. It is not stored unless remember is enabled.'}
+              </p>
+            </div>
           )}
         </div>
 

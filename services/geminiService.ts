@@ -33,6 +33,7 @@ type TtsRequest =
       voice: VoiceName;
       speed: SpeechSpeed;
       ttsLang: AppLang;
+      apiKey?: string;
     }
   | {
       mode: 'multi';
@@ -40,6 +41,7 @@ type TtsRequest =
       speakers: SpeakerConfig[];
       speed: SpeechSpeed;
       ttsLang: AppLang;
+      apiKey?: string;
     };
 
 function classifyError(error: any): Error {
@@ -90,10 +92,11 @@ export async function generateSingleSpeakerAudio(
   voice: VoiceName,
   speed: SpeechSpeed = 'normal',
   ttsLang: AppLang = 'tr',
-  ctx: AudioContext
+  ctx: AudioContext,
+  apiKey?: string
 ): Promise<AudioBuffer> {
   try {
-    const base64Audio = await requestAudio({ mode: 'single', text, voice, speed, ttsLang });
+    const base64Audio = await requestAudio({ mode: 'single', text, voice, speed, ttsLang, apiKey });
     return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini TTS Error:", error);
@@ -106,10 +109,11 @@ export async function generateMultiSpeakerAudio(
   speakers: SpeakerConfig[],
   speed: SpeechSpeed = 'normal',
   ttsLang: AppLang = 'tr',
-  ctx: AudioContext
+  ctx: AudioContext,
+  apiKey?: string
 ): Promise<AudioBuffer> {
   try {
-    const base64Audio = await requestAudio({ mode: 'multi', dialogue, speakers, speed, ttsLang });
+    const base64Audio = await requestAudio({ mode: 'multi', dialogue, speakers, speed, ttsLang, apiKey });
     return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini Multi-Speaker TTS Error:", error);

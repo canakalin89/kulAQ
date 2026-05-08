@@ -120,12 +120,13 @@ function getMultiPrompt(payload) {
 function normalizePayload(rawPayload) {
   if (!rawPayload || typeof rawPayload !== 'object') throw new Error('Invalid request body');
   assertCommon(rawPayload);
+  const userApiKey = cleanText(rawPayload.apiKey, 200);
 
   if (rawPayload.mode === 'single') {
     if (!ALLOWED_VOICES.has(rawPayload.voice)) throw new Error('Invalid voice');
     const text = cleanText(rawPayload.text);
     if (!text) throw new Error('Text is required');
-    return { ...rawPayload, text };
+    return { ...rawPayload, text, apiKey: userApiKey };
   }
 
   if (rawPayload.mode === 'multi') {
@@ -147,7 +148,7 @@ function normalizePayload(rawPayload) {
       .filter((item) => item.text);
 
     if (speakers.length === 0 || dialogue.length === 0) throw new Error('Dialogue is empty');
-    return { ...rawPayload, speakers, dialogue };
+    return { ...rawPayload, speakers, dialogue, apiKey: userApiKey };
   }
 
   throw new Error('Invalid mode');
@@ -170,13 +171,13 @@ export const handler = async (event) => {
     return json(405, { error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-  if (!apiKey) {
-    return json(500, { error: 'GEMINI_API_KEY Netlify ortam değişkeni tanımlı değil.' });
-  }
-
   try {
     const payload = normalizePayload(JSON.parse(event.body || '{}'));
+    const apiKey = payload.apiKey || process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (!apiKey) {
+      return json(500, { error: 'Gemini API anahtarı girilmedi ve Netlify ortam değişkeni tanımlı değil.' });
+    }
+
     const ai = new GoogleGenAI({ apiKey });
     const prompt = payload.mode === 'single' ? getSinglePrompt(payload) : getMultiPrompt(payload);
     const speechConfig = payload.mode === 'single'
