@@ -618,6 +618,35 @@ const App: React.FC = () => {
                   ? 'Anahtar yalnızca ses üretimi isteğinde kullanılır. Hatırlama açık değilse tarayıcıda saklanmaz.'
                   : 'The key is used only for audio generation. It is not stored unless remember is enabled.'}
               </p>
+              <details style={{ marginTop: 4 }}>
+                <summary style={{ fontSize: 12, color: accent, fontWeight: 700, cursor: 'pointer' }}>
+                  {isTr ? 'Gemini API key nasıl alınır?' : 'How do I get a Gemini API key?'}
+                </summary>
+                <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 10, background: surfac2, border: `1px solid ${border}` }}>
+                  <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text)', lineHeight: 1.55 }}>
+                    <li>
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: accent, fontWeight: 700 }}
+                      >
+                        Google AI Studio API Keys
+                      </a>
+                      {isTr ? ' sayfasını açın.' : ' page.'}
+                    </li>
+                    <li>{isTr ? 'Google hesabınızla giriş yapın.' : 'Sign in with your Google account.'}</li>
+                    <li>{isTr ? 'Create API key düğmesine basın.' : 'Click Create API key.'}</li>
+                    <li>{isTr ? 'Bir Google Cloud projesi seçin veya yeni proje oluşturun.' : 'Choose a Google Cloud project or create a new one.'}</li>
+                    <li>{isTr ? 'Oluşan anahtarı kopyalayıp buraya yapıştırın.' : 'Copy the generated key and paste it here.'}</li>
+                  </ol>
+                  <p style={{ margin: '8px 0 0', fontSize: 11, color: muted, lineHeight: 1.45 }}>
+                    {isTr
+                      ? 'Anahtarınızı GitHub, sosyal medya veya ekran görüntülerinde paylaşmayın.'
+                      : 'Do not share your key on GitHub, social media, or screenshots.'}
+                  </p>
+                </div>
+              </details>
             </div>
           )}
         </div>
