@@ -84,12 +84,46 @@ function cacheKey(text: string, voice: string, speed: string, lang: string): str
   return `${voice}|${speed}|${lang}|${text}`;
 }
 
+function browserLangCode(lang: AppLang): string {
+  return lang === 'tr' ? 'tr-TR' : lang === 'de' ? 'de-DE' : 'en-US';
+}
+
+function browserRate(speed: SpeechSpeed): number {
+  const rates: Record<SpeechSpeed, number> = {
+    'v-slow': 0.55,
+    slow: 0.75,
+    normal: 0.95,
+    fast: 1.2,
+  };
+  return rates[speed];
+}
+
+function browserPitch(voice: VoiceName): number {
+  const pitches: Record<VoiceName, number> = {
+    [VoiceName.Kore]: 1.08,
+    [VoiceName.Zephyr]: 1.03,
+    [VoiceName.Puck]: 1.12,
+    [VoiceName.Fenrir]: 0.82,
+    [VoiceName.Charon]: 0.72,
+  };
+  return pitches[voice];
+}
+
+function normalizeBrowserSpeech(text: string): string {
+  return text
+    .replace(/\[(laughs|güler)\]/gi, ' ha ha ')
+    .replace(/\[(sighs|breathes in|clears throat|coughs)[^\]]*\]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const App: React.FC = () => {
   const [lang, setLang]         = useState<AppLang>(() => (localStorage.getItem('kulaq-lang') as AppLang) || 'tr');
   const [ttsLang, setTtsLang]   = useState<AppLang>('en');
   const [theme, setTheme]       = useState<'dark' | 'light'>(() => (localStorage.getItem('kulaq-theme') as 'dark' | 'light') || 'light');
+  const [engine, setEngine]     = useState<'browser' | 'gemini'>(() => (localStorage.getItem('kulaq-engine') as 'browser' | 'gemini') || 'browser');
   const [mode, setMode]         = useState<'single' | 'multi'>('single');
   const [text, setText]         = useState('');
   const [voice, setVoice]       = useState<VoiceName>(VoiceName.Zephyr);
@@ -100,6 +134,7 @@ const App: React.FC = () => {
   const [history, setHistory]   = useState<AudioGenerationHistory[]>([]);
   const [showLibrary, setShowLibrary] = useState(false);
   const [speakerVoices, setSpeakerVoices] = useState<Record<string, VoiceName>>({});
+  const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   // Audio
   const [activeBuffer, setActiveBuffer] = useState<AudioBuffer | null>(null);
@@ -127,6 +162,15 @@ const App: React.FC = () => {
   }, [theme]);
 
   useEffect(() => { localStorage.setItem('kulaq-lang', lang); }, [lang]);
+  useEffect(() => { localStorage.setItem('kulaq-engine', engine); }, [engine]);
+
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+    const loadVoices = () => setBrowserVoices(window.speechSynthesis.getVoices());
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
 
   // ── Auto-assign voices to new speakers ──────────────────────────────────
 
@@ -162,6 +206,7 @@ const App: React.FC = () => {
   const stopAudio = useCallback(() => {
     cancelAnimationFrame(animIdRef.current);
     if (sourceRef.current) { try { sourceRef.current.stop(); } catch { /* ignore */ } sourceRef.current = null; }
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setIsPlaying(false);
   }, []);
 
@@ -185,6 +230,75 @@ const App: React.FC = () => {
     animIdRef.current = requestAnimationFrame(tick);
   }, [getCtx, stopAudio]);
 
+  const pickBrowserVoice = useCallback((voiceHint: VoiceName, index = 0) => {
+    const target = browserLangCode(ttsLang).slice(0, 2);
+    const matching = browserVoices.filter(v => v.lang.toLowerCase().startsWith(target));
+    const pool = matching.length > 0 ? matching : browserVoices;
+    if (pool.length === 0) return null;
+    const preferred = pool.find(v => v.name.toLowerCase().includes(voiceHint.toLowerCase()));
+    return preferred ?? pool[index % pool.length];
+  }, [browserVoices, ttsLang]);
+
+  const speakBrowserLine = useCallback((line: string, voiceHint: VoiceName, index = 0) => {
+    return new Promise<void>((resolve, reject) => {
+      if (!('speechSynthesis' in window)) {
+        reject(new Error(isTr ? 'Bu tarayıcı yerleşik seslendirmeyi desteklemiyor.' : 'This browser does not support built-in speech.'));
+        return;
+      }
+
+      const spokenText = normalizeBrowserSpeech(line);
+      if (!spokenText) { resolve(); return; }
+
+      const utterance = new SpeechSynthesisUtterance(spokenText);
+      utterance.lang = browserLangCode(ttsLang);
+      utterance.rate = browserRate(speed);
+      utterance.pitch = browserPitch(voiceHint);
+      utterance.voice = pickBrowserVoice(voiceHint, index);
+      utterance.onstart = () => setIsPlaying(true);
+      utterance.onend = () => resolve();
+      utterance.onerror = () => reject(new Error(isTr ? 'Tarayıcı sesi oynatılamadı.' : 'Browser speech could not be played.'));
+      window.speechSynthesis.speak(utterance);
+    });
+  }, [isTr, pickBrowserVoice, speed, ttsLang]);
+
+  const speakWithBrowser = useCallback(async () => {
+    if (!('speechSynthesis' in window)) {
+      throw new Error(isTr ? 'Bu tarayıcı yerleşik seslendirmeyi desteklemiyor.' : 'This browser does not support built-in speech.');
+    }
+
+    window.speechSynthesis.cancel();
+    setActiveBuffer(null);
+    setActiveWavUrl(null);
+    setDuration(0);
+    setCurrentTime(0);
+    setPausedAt(0);
+
+    if (mode === 'single') {
+      await speakBrowserLine(text, voice);
+    } else {
+      if (parsed.length === 0) {
+        throw new Error(isTr ? 'Diyalog için her satırı "Karakter: metin" formatında yazın.' : 'Write each dialogue line as "Speaker: text".');
+      }
+      for (let i = 0; i < parsed.length; i++) {
+        const item = parsed[i];
+        const assignedVoice = speakerVoices[item.name] ?? DEFAULT_VOICE_POOL[i % DEFAULT_VOICE_POOL.length];
+        await speakBrowserLine(item.line, assignedVoice, i);
+      }
+    }
+
+    setIsPlaying(false);
+    const entry: AudioGenerationHistory = {
+      id: Date.now().toString(),
+      text: text.slice(0, 80),
+      audioUrl: '',
+      timestamp: new Date(),
+      voice: mode === 'single' ? 'Browser TTS' : speakerNames.join(', '),
+      speed,
+      lang: ttsLang,
+    };
+    setHistory(prev => [entry, ...prev]);
+  }, [isTr, mode, parsed, speakerNames, speakerVoices, speed, speakBrowserLine, text, ttsLang, voice]);
+
   // ── Generate ─────────────────────────────────────────────────────────────
 
   const handleGenerate = async () => {
@@ -198,6 +312,11 @@ const App: React.FC = () => {
     setPausedAt(0);
     setDuration(0);
     try {
+      if (engine === 'browser') {
+        await speakWithBrowser();
+        return;
+      }
+
       const { ctx } = getCtx();
       let buffer: AudioBuffer;
 
@@ -397,6 +516,63 @@ const App: React.FC = () => {
           </div>
         </div>
 
+        {/* Voice engine selector */}
+        <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 16 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted, margin: '0 0 12px' }}>
+            {isTr ? 'Ses Motoru' : 'Voice Engine'}
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+            {([
+              {
+                id: 'browser' as const,
+                titleTr: 'Ücretsiz',
+                titleEn: 'Free',
+                descTr: 'Tarayıcı sesi, API yok',
+                descEn: 'Browser voice, no API',
+              },
+              {
+                id: 'gemini' as const,
+                titleTr: 'Gemini',
+                titleEn: 'Gemini',
+                descTr: 'Stüdyo kalite, API gerekir',
+                descEn: 'Studio quality, API required',
+              },
+            ]).map(option => {
+              const isActive = engine === option.id;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => setEngine(option.id)}
+                  style={{
+                    padding: '12px 10px',
+                    borderRadius: 12,
+                    border: `2px solid ${isActive ? accent : border}`,
+                    background: isActive ? (theme === 'dark' ? 'rgba(99,102,241,0.15)' : 'rgba(30,27,75,0.06)') : surface,
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: isActive ? accent : 'var(--text)' }}>
+                    {option.id === 'browser' ? '🔈 ' : '✨ '}
+                    {isTr ? option.titleTr : option.titleEn}
+                  </span>
+                  <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: muted }}>
+                    {isTr ? option.descTr : option.descEn}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {engine === 'browser' && (
+            <p style={{ margin: '10px 0 0', fontSize: 11, color: muted, lineHeight: 1.45 }}>
+              {isTr
+                ? 'Bu mod abonelik istemez. Ses kalitesi ve karakter çeşitliliği kullandığınız tarayıcı/cihaz seslerine bağlıdır; WAV indirme sunmaz.'
+                : 'This mode needs no subscription. Voice quality and variety depend on your browser/device voices; WAV download is not available.'}
+            </p>
+          )}
+        </div>
+
         {/* Mode tabs */}
         <div style={{ display: 'inline-flex', background: surfac2, borderRadius: 12, padding: 4, gap: 4, alignSelf: 'flex-start' }}>
           {(['single', 'multi'] as const).map(m => (
@@ -574,10 +750,14 @@ const App: React.FC = () => {
           }}
         >
           {isGenerating
-            ? chunkProgress
+            ? engine === 'browser'
+              ? `🔈 ${isTr ? 'Oynatılıyor…' : 'Speaking…'}`
+              : chunkProgress
               ? `⚡ ${chunkProgress.done}/${chunkProgress.total} ${isTr ? 'parça…' : 'chunks…'}`
               : `⏳ ${isTr ? 'Üretiliyor…' : 'Generating…'}`
-            : `🎙️ ${isTr ? 'SESLENDİR' : 'GENERATE'}`
+            : engine === 'browser'
+              ? `🔈 ${isTr ? 'OYNAT' : 'PLAY'}`
+              : `🎙️ ${isTr ? 'SESLENDİR' : 'GENERATE'}`
           }
         </button>
 
@@ -692,7 +872,11 @@ const App: React.FC = () => {
                           {item.voice} · {item.speed} · {item.lang.toUpperCase()} · {new Date(item.timestamp).toLocaleTimeString()}
                         </p>
                       </div>
-                      <a href={item.audioUrl} download="kulaq.wav" style={{ fontSize: 18, textDecoration: 'none' }}>⬇️</a>
+                      {item.audioUrl ? (
+                        <a href={item.audioUrl} download="kulaq.wav" style={{ fontSize: 18, textDecoration: 'none' }}>⬇️</a>
+                      ) : (
+                        <span title={isTr ? 'Tarayıcı sesi indirilemez' : 'Browser speech cannot be downloaded'} style={{ fontSize: 12, color: muted, minWidth: 18, textAlign: 'center' }}>—</span>
+                      )}
                       <button
                         onClick={() => setHistory(prev => prev.filter(h => h.id !== item.id))}
                         style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: muted }}

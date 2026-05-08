@@ -1,6 +1,5 @@
 
-import { GoogleGenAI, Modality } from "@google/genai";
-import { VoiceName, SpeakerConfig, DialogueItem, SpeechSpeed, VoiceDescriptions, AppLang } from "../types";
+import { VoiceName, SpeakerConfig, DialogueItem, SpeechSpeed, AppLang } from "../types";
 
 function decode(base64: string): Uint8Array {
   return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
@@ -27,11 +26,27 @@ async function decodeAudioData(
 
 const SAMPLE_RATE = 24000;
 
+type TtsRequest =
+  | {
+      mode: 'single';
+      text: string;
+      voice: VoiceName;
+      speed: SpeechSpeed;
+      ttsLang: AppLang;
+    }
+  | {
+      mode: 'multi';
+      dialogue: DialogueItem[];
+      speakers: SpeakerConfig[];
+      speed: SpeechSpeed;
+      ttsLang: AppLang;
+    };
+
 function classifyError(error: any): Error {
   const msg: string = error?.message?.toLowerCase() ?? '';
   const status: number = error?.status ?? error?.code ?? 0;
   if (msg.includes('api_key') || msg.includes('api key') || msg.includes('invalid key') || status === 401 || status === 403) {
-    return new Error('Invalid API key. Check your GEMINI_API_KEY environment variable.');
+    return new Error('Gemini API anahtarı sunucuda eksik veya geçersiz. Netlify ortam değişkenlerinde GEMINI_API_KEY değerini kontrol edin.');
   }
   if (msg.includes('quota') || msg.includes('rate') || status === 429) {
     return new Error('API quota exceeded or rate limited. Please wait a moment and try again.');
@@ -45,51 +60,30 @@ function classifyError(error: any): Error {
   return error instanceof Error ? error : new Error(String(error?.message ?? error));
 }
 
-const speedInstructions: Record<SpeechSpeed, string> = {
-  'v-slow': "Speak extremely slowly, pausing significantly between every word. Articulate every syllable with perfect clarity.",
-  'slow': "Speak slowly and clearly, as if teaching a beginner student.",
-  'normal': "Speak at a natural, conversational pace.",
-  'fast': "Speak quickly and fluently, like a native speaker in a hurry."
-};
+async function requestAudio(payload: TtsRequest): Promise<string> {
+  const response = await fetch('/.netlify/functions/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 
-const NON_VERBAL_CUE_INSTRUCTION = `
-STRICT PERFORMANCE RULE: 
-- Use punctuation (commas, periods, ellipses) to control rhythm and pauses.
-- "..." (Ellipses) indicate a long, meaningful pause.
-- "," (Commas) indicate a short, natural breathing pause.
-- "[breathes in]" is a VOCAL ACTION. PERFORM THE SOUND of a natural intake of breath. 
-- CRITICAL: DO NOT SAY the words inside the brackets.
-- UPPERCASE words (e.g., "IMPORTANT") must be spoken with HIGHER VOLUME, STRONGER STRESS, and HIGHER PITCH to provide emphasis.
-- The delivery should sound professional and tailored for high-quality educational materials.
-`;
-
-const getVoiceStyleInstruction = (voice: VoiceName, ttsLang: AppLang) => {
-  const desc = VoiceDescriptions[voice];
-  const langLabel = ttsLang === 'tr' ? 'Turkish' : ttsLang === 'de' ? 'German' : 'English';
-  
-  let instruction = `You are performing as ${voice}. 
-  Target Language: ${langLabel}. 
-  MANDATORY: Speak in ${langLabel} with a perfect native accent. 
-  Style: ${desc.traits}. `;
-  
-  if (ttsLang === 'tr') {
-    instruction += "Apply native Turkish phonetics for characters like 'ğ, ş, ç, ö, ü, ı'. Use standard Istanbul Turkish intonation. ";
-  } else if (ttsLang === 'de') {
-    instruction += "Apply native German phonetics. Pay special attention to 'Umlaute' (ä, ö, ü) and 'ß'. Use natural German sentence melody. ";
+  let body: any = null;
+  try {
+    body = await response.json();
+  } catch {
+    // Netlify function bulunamazsa çoğu zaman HTML döner; kullanıcıya anlaşılır hata verelim.
   }
 
-  if (voice === VoiceName.Fenrir) {
-    instruction += "CRITICAL: Use an ULTRA-MASCULINE, deep, heavy chest-voice. Bass-baritone resonance. ";
-  } else if (voice === VoiceName.Puck) {
-    instruction += "CRITICAL: Use a young male voice. Adolescent male resonance. Strictly masculine. ";
-  } else if (voice === VoiceName.Charon) {
-    instruction += "CRITICAL: Extremely old, raspy, gravelly male voice. Deep weathered throat. ";
-  } else if (desc.gender === 'male') {
-    instruction += "MANDATORY: Strictly masculine chest-voice. ";
+  if (!response.ok) {
+    throw classifyError({
+      status: response.status,
+      message: body?.error ?? `TTS sunucusu yanıt vermedi (${response.status}).`,
+    });
   }
-  
-  return instruction;
-};
+
+  if (!body?.audioBase64) throw new Error('No audio data returned from API');
+  return body.audioBase64;
+}
 
 export async function generateSingleSpeakerAudio(
   text: string,
@@ -98,32 +92,8 @@ export async function generateSingleSpeakerAudio(
   ttsLang: AppLang = 'tr',
   ctx: AudioContext
 ): Promise<AudioBuffer> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `
-    ${NON_VERBAL_CUE_INSTRUCTION}
-    ${getVoiceStyleInstruction(voice, ttsLang)}
-    ${speedInstructions[speed]}
-    Script to be spoken in ${ttsLang.toUpperCase()} (PERFORM BRACKETED ACTIONS, STRESS UPPERCASE):
-    ${text}
-  `;
-
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voice },
-          },
-        },
-      },
-    });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) throw new Error("No audio data returned from API");
-
+    const base64Audio = await requestAudio({ mode: 'single', text, voice, speed, ttsLang });
     return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini TTS Error:", error);
@@ -138,50 +108,8 @@ export async function generateMultiSpeakerAudio(
   ttsLang: AppLang = 'tr',
   ctx: AudioContext
 ): Promise<AudioBuffer> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-  const speakerMap = speakers.reduce((acc, s) => {
-    acc[s.id] = { name: s.name, voice: s.voice };
-    return acc;
-  }, {} as Record<string, { name: string; voice: VoiceName }>);
-
-  const conversationText = dialogue
-    .map((item) => `${speakerMap[item.speakerId].name}: ${item.text}`)
-    .join("\n");
-
-  const voiceInstructions = speakers.map(s => getVoiceStyleInstruction(s.voice, ttsLang)).join("\n");
-
-  const prompt = `
-    ${NON_VERBAL_CUE_INSTRUCTION}
-    SPEAK IN ${ttsLang.toUpperCase()} AS NATIVE SPEAKERS. 
-    ${voiceInstructions}
-    ${speedInstructions[speed]} 
-    Dialogue Script:
-    ${conversationText}
-  `;
-
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          multiSpeakerVoiceConfig: {
-            speakerVoiceConfigs: speakers.map(s => ({
-              speaker: s.name,
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: s.voice }
-              }
-            }))
-          }
-        }
-      }
-    });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) throw new Error("No audio data returned from API");
-
+    const base64Audio = await requestAudio({ mode: 'multi', dialogue, speakers, speed, ttsLang });
     return await decodeAudioData(decode(base64Audio), ctx, SAMPLE_RATE, 1);
   } catch (error: any) {
     console.error("Gemini Multi-Speaker TTS Error:", error);
