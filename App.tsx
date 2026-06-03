@@ -138,6 +138,12 @@ const App: React.FC = () => {
   const [speakerVoices, setSpeakerVoices] = useState<Record<string, VoiceName>>({});
   const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
 
+  // Magic Script
+  const [showMagicScript, setShowMagicScript] = useState(false);
+  const [magicTopic, setMagicTopic]           = useState('');
+  const [isMagicWriting, setIsMagicWriting]   = useState(false);
+  const [magicError, setMagicError]           = useState<string | null>(null);
+
   // Audio
   const [activeBuffer, setActiveBuffer] = useState<AudioBuffer | null>(null);
   const [activeWavUrl, setActiveWavUrl] = useState<string | null>(null);
@@ -433,6 +439,36 @@ const App: React.FC = () => {
     setTimeout(() => { ta.focus(); ta.setSelectionRange(s + tag.length, s + tag.length); }, 0);
   };
 
+  // ── Magic Script ─────────────────────────────────────────────────────────
+
+  const handleMagicScript = async () => {
+    const topic = magicTopic.trim();
+    if (!topic) return;
+    setIsMagicWriting(true);
+    setMagicError(null);
+    try {
+      const res = await fetch('/netlify/functions/script-writer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic,
+          ttsLang,
+          mode,
+          apiKey: geminiApiKey.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Script generation failed');
+      setText(data.script);
+      setShowMagicScript(false);
+      setMagicTopic('');
+    } catch (err: unknown) {
+      setMagicError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsMagicWriting(false);
+    }
+  };
+
   // ── Colours & CSS vars ───────────────────────────────────────────────────
 
   const accent  = theme === 'dark' ? '#6366f1' : '#1e1b4b';
@@ -671,6 +707,66 @@ const App: React.FC = () => {
 
         {/* Text area card */}
         <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 16 }}>
+          {/* Magic Script button and inline panel */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <button
+              onClick={() => { setShowMagicScript(v => !v); setMagicError(null); }}
+              style={{
+                background: showMagicScript ? accent : surfac2,
+                color: showMagicScript ? '#fff' : accent,
+                border: `1px solid ${accent}`,
+                borderRadius: 20, padding: '4px 14px', fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', transition: 'all .2s',
+              }}
+            >
+              ✨ {isTr ? 'Magic Script' : 'Magic Script'}
+            </button>
+          </div>
+          {showMagicScript && (
+            <div style={{
+              background: surfac2, border: `1px solid ${accent}`, borderRadius: 12,
+              padding: 14, marginBottom: 12,
+            }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: accent, marginBottom: 8 }}>
+                ✨ {isTr ? 'Yapay Zeka Yazar' : 'AI Script Writer'}
+              </p>
+              <p style={{ fontSize: 12, color: muted, marginBottom: 8 }}>
+                {isTr
+                  ? 'Bir konu girin; yapay zeka nefes, duraklamalar ve vurgular içeren senaryo üretsin.'
+                  : 'Enter a topic and the AI will generate a script with breaths, pauses and emphasis.'}
+              </p>
+              <input
+                type="text"
+                value={magicTopic}
+                onChange={e => setMagicTopic(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !isMagicWriting) handleMagicScript(); }}
+                placeholder={isTr
+                  ? 'Örn: okul hayatı hakkında A2 seviye diyalog'
+                  : 'E.g.: A2 level dialogue about school life'}
+                style={{
+                  width: '100%', boxSizing: 'border-box', background: surface, color: 'var(--text)',
+                  border: `1px solid ${border}`, borderRadius: 8, padding: '8px 12px',
+                  fontSize: 14, outline: 'none', fontFamily: "'Inter', sans-serif", marginBottom: 8,
+                }}
+              />
+              {magicError && (
+                <p style={{ fontSize: 12, color: '#ef4444', marginBottom: 8 }}>⚠️ {magicError}</p>
+              )}
+              <button
+                onClick={handleMagicScript}
+                disabled={isMagicWriting || !magicTopic.trim()}
+                style={{
+                  background: accent, color: '#fff', border: 'none', borderRadius: 8,
+                  padding: '7px 18px', fontSize: 14, fontWeight: 600, cursor: isMagicWriting || !magicTopic.trim() ? 'not-allowed' : 'pointer',
+                  opacity: isMagicWriting || !magicTopic.trim() ? 0.6 : 1, transition: 'all .2s',
+                }}
+              >
+                {isMagicWriting
+                  ? (isTr ? '✍️ Yazıyor…' : '✍️ Writing…')
+                  : (isTr ? '✨ Senaryo Üret' : '✨ Generate Script')}
+              </button>
+            </div>
+          )}
           {mode === 'multi' && (
             <p style={{ fontSize: 12, color: muted, marginBottom: 8 }}>
               ℹ️ {isTr ? 'Her satırı "Karakter: metin" formatında yazın' : 'Write each line as "Speaker: text"'}
@@ -983,8 +1079,8 @@ const App: React.FC = () => {
         {/* Footer credit */}
         <p style={{ textAlign: 'center', fontSize: 11, color: muted, marginTop: 8 }}>
           {isTr
-            ? 'Can AKALIN tarafından öğretmenler için geliştirildi · Gemini 2.5 Flash TTS'
-            : 'Built for educators by Can AKALIN · Powered by Gemini 2.5 Flash TTS'}
+            ? 'Can AKALIN tarafından öğretmenler için geliştirildi · Gemini 3.1 Flash TTS'
+            : 'Built for educators by Can AKALIN · Powered by Gemini 3.1 Flash TTS'}
         </p>
       </main>
     </div>
